@@ -31,6 +31,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
+// PATCH /api/slots/[id] — ADMIN: partial update slot (alias for PUT)
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    return PUT(request, { params })
+}
+
 // DELETE /api/slots/[id] — ADMIN
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {

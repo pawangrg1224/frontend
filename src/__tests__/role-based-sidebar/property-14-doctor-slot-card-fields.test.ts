@@ -25,7 +25,7 @@ jest.mock('next-auth/react', () => ({
 }))
 
 // ─── Import the component under test ─────────────────────────────────────────
-import DoctorSlotsPage from '@/app/dashboard/slots/page'
+import DoctorSlotsPage from '@/app/dashboard/doctor/slots/page'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

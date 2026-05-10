@@ -74,6 +74,7 @@ model User {
   reviewVotes          ReviewVote[]
   availabilities       Availability[]
   availabilityPatterns AvailabilityPattern[]
+  doctorProfile        DoctorProfile?
 }
 
 model Customer {
@@ -117,6 +118,7 @@ model Service {
   appointments   Appointment[]
   reviews        Review[]
   slots          AppointmentSlot[]
+  doctors        DoctorProfile[]
 }
 
 model Appointment {
@@ -148,6 +150,22 @@ model Appointment {
   @@index([serviceId, date])
   @@index([domainId, date])
   @@index([patientId])
+}
+
+// ─── Doctor Profile ───────────────────────────────────────────────────────────
+
+model DoctorProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization String?
+  profileImage   String?           // relative URL e.g. /uploads/doctors/abc.jpg
+  qualifications String[]          // array of qualification strings
+  experience     Int?              // years of experience
+  departmentId   String?
+  department     Service? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // ─── Appointment Slots ────────────────────────────────────────────────────────

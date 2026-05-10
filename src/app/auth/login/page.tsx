@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signIn, getSession } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import { Calendar, Eye, EyeOff, ArrowRight, Loader, CheckCircle } from 'lucide-react'
 
 const LoginPage = () => {
@@ -37,12 +37,8 @@ const LoginPage = () => {
       if (result?.error) {
         setError('Invalid email or password. Please try again.')
       } else if (result?.ok) {
-        const session = await getSession()
-        if (session?.user?.role === 'ADMIN') {
-          router.push('/dashboard/admin')
-        } else {
-          router.push('/dashboard')
-        }
+        // Let /dashboard root page handle the role-based redirect
+        router.push('/dashboard')
       }
     } catch (err) {
       setError('An error occurred. Please try again.')

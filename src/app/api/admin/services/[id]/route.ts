@@ -28,3 +28,28 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
   }
 }
+
+/**
+ * PATCH /api/admin/services/[id]
+ * Body: { doctorName: string | null }
+ * Assigns or removes the doctor from a service.
+ */
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getAuthSession()
+  if (!session?.user?.email) return unauthorizedResponse()
+  if (session.user.role !== 'ADMIN') return forbiddenResponse()
+  const { id } = await params
+
+  try {
+    const { doctorName } = await request.json()
+    const updated = await prisma.service.update({
+      where: { id },
+      data: { doctorName: doctorName ?? null },
+      select: { id: true, name: true, doctorName: true },
+    })
+    return NextResponse.json(updated)
+  } catch (err) {
+    console.error('Error updating service doctor:', err)
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
+  }
+}

@@ -130,7 +130,7 @@ const NewAppointmentPage = () => {
         setErrors({ submit: data.message });
         return;
       }
-      router.push("/dashboard/appointments");
+      router.push("/dashboard/doctor/appointments");
     } catch (err) {
       setErrors({ submit: "An error occurred" });
     } finally {
@@ -150,7 +150,7 @@ const NewAppointmentPage = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 px-6 py-6">
         <Link
-          href="/dashboard/appointments"
+          href="/dashboard/doctor/appointments"
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
         >
           <ChevronLeft size={20} />
@@ -305,7 +305,7 @@ const NewAppointmentPage = () => {
                 Schedule Appointment
               </button>
               <Link
-                href="/dashboard/appointments"
+                href="/dashboard/doctor/appointments"
                 className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors text-center"
               >
                 Cancel

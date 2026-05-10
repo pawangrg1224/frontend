@@ -167,11 +167,33 @@ function getInitials(name: string): string {
     return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
 }
 
-function formatSlotDate(iso: string): { date: string; weekday: string } {
+function formatSlotDate(iso: string): { date: string; weekday: string; time: string } {
     const d = new Date(iso)
+    const hour = d.getHours()
+    const nextHour = hour + 1
+
+    // Format start time
+    const startAmpm = hour >= 12 ? 'pm' : 'am'
+    const startH12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
+
+    // Format end time
+    const endAmpm = nextHour >= 12 ? 'pm' : 'am'
+    const endH12 = nextHour > 12 ? nextHour - 12 : nextHour === 0 ? 12 : nextHour
+
+    // Show range like "8 to 9" or "8pm to 9pm"
+    let timeRange: string
+    if (startAmpm === endAmpm) {
+        // Same period, show AM/PM only once: "8 to 9pm"
+        timeRange = `${startH12} to ${endH12}${endAmpm}`
+    } else {
+        // Different periods, show both: "11am to 12pm"
+        timeRange = `${startH12}${startAmpm} to ${endH12}${endAmpm}`
+    }
+
     return {
         date: d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
         weekday: d.toLocaleDateString('en-US', { weekday: 'long' }),
+        time: timeRange,
     }
 }
 
@@ -479,7 +501,7 @@ export default function DepartmentDoctorsPage() {
                                 ) : (
                                     <div className="space-y-3">
                                         {slots.map(slot => {
-                                            const { date, weekday } = formatSlotDate(slot.slotDate)
+                                            const { date, weekday, time } = formatSlotDate(slot.slotDate)
                                             const pct = slot.slotLimit > 0 ? Math.round((slot.bookedCount / slot.slotLimit) * 100) : 100
                                             return (
                                                 <div key={slot.id} className={`rounded-xl border p-4 transition-all ${slot.isFull ? 'border-gray-200 opacity-60' : 'border-gray-200 hover:border-blue-200 hover:shadow-sm'}`}>
@@ -487,6 +509,7 @@ export default function DepartmentDoctorsPage() {
                                                         <div>
                                                             <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">{weekday}</p>
                                                             <p className="text-sm font-semibold text-gray-900">{date}</p>
+                                                            <p className="text-sm font-medium text-blue-600 mt-0.5">{time}</p>
                                                         </div>
                                                         {slot.isFull
                                                             ? <span className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Full</span>

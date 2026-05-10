@@ -168,7 +168,7 @@ const SettingsPage = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 px-6 py-6">
         <Link
-          href="/dashboard"
+          href="/dashboard/user"
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
         >
           <ChevronLeft size={20} />

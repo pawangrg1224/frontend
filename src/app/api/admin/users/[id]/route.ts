@@ -38,3 +38,43 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
   }
 }
+
+/**
+ * PATCH /api/admin/users/[id]
+ * Body: { makeDoctor: boolean, specialization?: string }
+ * Creates or deletes the DoctorProfile for this user.
+ */
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getAuthSession()
+  if (!session?.user?.email) return unauthorizedResponse()
+  if (session.user.role !== 'ADMIN') return forbiddenResponse()
+  const { id } = await params
+
+  try {
+    const { makeDoctor, specialization } = await request.json()
+
+    if (makeDoctor) {
+      // Upsert DoctorProfile
+      await prisma.doctorProfile.upsert({
+        where: { userId: id },
+        create: { userId: id, specialization: specialization ?? null },
+        update: { specialization: specialization ?? null },
+      })
+    } else {
+      // Remove DoctorProfile if it exists
+      await prisma.doctorProfile.deleteMany({ where: { userId: id } })
+    }
+
+    const updated = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true, fullName: true, email: true, role: true, createdAt: true,
+        doctorProfile: { select: { id: true, specialization: true } },
+      },
+    })
+    return NextResponse.json(updated)
+  } catch (err) {
+    console.error('Error updating doctor profile:', err)
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
+  }
+}

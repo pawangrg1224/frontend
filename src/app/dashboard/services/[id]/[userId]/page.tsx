@@ -64,11 +64,33 @@ function getInitials(name: string): string {
         .join('')
 }
 
-function formatSlotDate(iso: string): { date: string; weekday: string } {
+function formatSlotDate(iso: string): { date: string; weekday: string; time: string } {
     const d = new Date(iso)
+    const hour = d.getHours()
+    const nextHour = hour + 1
+
+    // Format start time
+    const startAmpm = hour >= 12 ? 'pm' : 'am'
+    const startH12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
+
+    // Format end time
+    const endAmpm = nextHour >= 12 ? 'pm' : 'am'
+    const endH12 = nextHour > 12 ? nextHour - 12 : nextHour === 0 ? 12 : nextHour
+
+    // Show range like "8 to 9" or "8pm to 9pm"
+    let timeRange: string
+    if (startAmpm === endAmpm) {
+        // Same period, show AM/PM only once: "8 to 9pm"
+        timeRange = `${startH12} to ${endH12}${endAmpm}`
+    } else {
+        // Different periods, show both: "11am to 12pm"
+        timeRange = `${startH12}${startAmpm} to ${endH12}${endAmpm}`
+    }
+
     return {
         date: d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
         weekday: d.toLocaleDateString('en-US', { weekday: 'long' }),
+        time: timeRange,
     }
 }
 
@@ -290,7 +312,7 @@ export default function DoctorDetailPage() {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {slots.map(slot => {
-                            const { date, weekday } = formatSlotDate(slot.slotDate)
+                            const { date, weekday, time } = formatSlotDate(slot.slotDate)
                             const capacityPct = slot.slotLimit > 0
                                 ? Math.round((slot.bookedCount / slot.slotLimit) * 100)
                                 : 100
@@ -299,15 +321,16 @@ export default function DoctorDetailPage() {
                                 <div
                                     key={slot.id}
                                     className={`bg-white rounded-xl border p-5 transition-all ${slot.isFull
-                                            ? 'border-gray-200 opacity-60'
-                                            : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                                        ? 'border-gray-200 opacity-60'
+                                        : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
                                         }`}
                                 >
-                                    {/* Date */}
+                                    {/* Date & Time */}
                                     <div className="flex items-start justify-between mb-3">
                                         <div>
                                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{weekday}</p>
                                             <p className="text-base font-semibold text-gray-900 mt-0.5">{date}</p>
+                                            <p className="text-sm font-medium text-blue-600 mt-1">{time}</p>
                                         </div>
                                         {slot.isFull ? (
                                             <span className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded-full">
@@ -331,7 +354,7 @@ export default function DoctorDetailPage() {
                                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full rounded-full transition-all ${capacityPct >= 100 ? 'bg-red-400' :
-                                                        capacityPct >= 75 ? 'bg-amber-400' : 'bg-green-400'
+                                                    capacityPct >= 75 ? 'bg-amber-400' : 'bg-green-400'
                                                     }`}
                                                 style={{ width: `${Math.min(capacityPct, 100)}%` }}
                                             />
@@ -349,8 +372,8 @@ export default function DoctorDetailPage() {
                                         disabled={slot.isFull}
                                         onClick={() => openBooking(slot)}
                                         className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${slot.isFull
-                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
                                             }`}
                                     >
                                         {slot.isFull ? 'Fully Booked' : 'Book This Slot'}
