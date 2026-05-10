@@ -155,17 +155,19 @@ model Appointment {
 // ─── Doctor Profile ───────────────────────────────────────────────────────────
 
 model DoctorProfile {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialization String?
-  profileImage   String?           // relative URL e.g. /uploads/doctors/abc.jpg
-  qualifications String[]          // array of qualification strings
-  experience     Int?              // years of experience
-  departmentId   String?
-  department     Service? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization        String?
+  profileImage          String?           // relative URL e.g. /uploads/doctors/abc.jpg
+  qualifications        String[]          // array of qualification strings
+  experience            Int?              // years of experience
+  departmentId          String?
+  department            Service?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentStartDate   DateTime?         // when the doctor was assigned to the department
+  departmentEndDate     DateTime?         // optional end date for the assignment
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }
 
 // ─── Appointment Slots ────────────────────────────────────────────────────────
