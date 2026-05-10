@@ -1,0 +1,290 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum AppointmentType {
+  ONLINE
+  OFFLINE
+}
+
+enum NotificationType {
+  CONFIRMATION
+  CANCELLATION
+  REMINDER_24H
+  REMINDER_1H
+  UPDATE
+  MEETING_LINK_CHANGED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// ─── Core Models ──────────────────────────────────────────────────────────────
+
+model User {
+  id                   String                @id @default(cuid())
+  fullName             String
+  email                String                @unique
+  password             String
+  role                 Role                  @default(USER)
+  resetToken           String?
+  resetTokenExpiresAt  DateTime?
+  timezone             String                @default("UTC")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  appointments         Appointment[]
+  patientAppointments  Appointment[]         @relation("PatientAppointments")
+  sentMessages         Message[]             @relation("SentMessages")
+  reviewVotes          ReviewVote[]
+  availabilities       Availability[]
+  availabilityPatterns AvailabilityPattern[]
+}
+
+model Customer {
+  id               String            @id @default(cuid())
+  name             String
+  email            String            @unique
+  phone            String
+  address          String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  appointments     Appointment[]
+  reviews          Review[]
+  notificationLogs NotificationLog[]
+}
+
+model Domain {
+  id             String          @id @default(cuid())
+  company        String
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  services       Service[]
+  appointments   Appointment[]
+  emailTemplates EmailTemplate[]
+}
+
+model Service {
+  id             String            @id @default(cuid())
+  name           String
+  description    String?
+  duration       Int
+  price          Float
+  doctorName     String?
+  domainId       String?
+  domain         Domain?           @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  supportedTypes AppointmentType[] @default([OFFLINE])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  appointments   Appointment[]
+  reviews        Review[]
+  slots          AppointmentSlot[]
+}
+
+model Appointment {
+  id               String            @id @default(cuid())
+  date             DateTime
+  status           AppointmentStatus @default(PENDING)
+  type             AppointmentType   @default(OFFLINE)
+  meetingLink      String?
+  notes            String?
+  customerId       String
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceId        String
+  service          Service           @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  domainId         String?
+  domain           Domain?           @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patientId        String?
+  patient          User?             @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: SetNull)
+  slotId           String?
+  slot             AppointmentSlot?  @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  messages         Message[]
+  review           Review?
+  notificationLogs NotificationLog[]
+
+  @@index([date, status])
+  @@index([serviceId, date])
+  @@index([domainId, date])
+  @@index([patientId])
+}
+
+// ─── Appointment Slots ────────────────────────────────────────────────────────
+
+model AppointmentSlot {
+  id           String        @id @default(cuid())
+  serviceId    String
+  service      Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  doctorName   String
+  slotDate     DateTime      // The date this slot is open (time part ignored)
+  slotLimit    Int           // Max patients for this slot
+  isOpen       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+
+  @@index([serviceId, slotDate])
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+model Message {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User        @relation("SentMessages", fields: [senderId], references: [id])
+  content       String      @db.VarChar(2000)
+  isRead        Boolean     @default(false)
+  readAt        DateTime?
+  isArchived    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+
+  @@index([appointmentId, createdAt])
+  @@index([senderId])
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
+model Review {
+  id            String       @id @default(cuid())
+  appointmentId String       @unique
+  appointment   Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id])
+  serviceId     String
+  service       Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  rating        Int
+  feedback      String?      @db.VarChar(1000)
+  isFlagged     Boolean      @default(false)
+  isHidden      Boolean      @default(false)
+  adminResponse String?
+  adminId       String?
+  flaggedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  votes         ReviewVote[]
+
+  @@index([serviceId, createdAt(sort: Desc)])
+  @@index([customerId])
+}
+
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([reviewId, userId])
+}
+
+// ─── Availability ─────────────────────────────────────────────────────────────
+
+model Availability {
+  id            String               @id @default(cuid())
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime     DateTime
+  endTime       DateTime
+  isAvailable   Boolean              @default(true)
+  patternId     String?
+  pattern       AvailabilityPattern? @relation(fields: [patternId], references: [id], onDelete: SetNull)
+  bufferMinutes Int                  @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([userId, startTime, endTime])
+}
+
+model AvailabilityPattern {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek     DayOfWeek[]
+  startTime     String
+  endTime       String
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  bufferMinutes Int            @default(0)
+  createdAt     DateTime       @default(now())
+  slots         Availability[]
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model NotificationLog {
+  id             String             @id @default(cuid())
+  appointmentId  String
+  appointment    Appointment        @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type           NotificationType
+  status         NotificationStatus @default(PENDING)
+  recipientEmail String
+  subject        String
+  retryCount     Int                @default(0)
+  sentAt         DateTime?
+  failedAt       DateTime?
+  errorMessage   String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([appointmentId])
+  @@index([status, createdAt])
+}
+
+model EmailTemplate {
+  id        String           @id @default(cuid())
+  type      NotificationType @unique
+  subject   String
+  htmlBody  String           @db.Text
+  textBody  String           @db.Text
+  domainId  String?
+  domain    Domain?          @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
