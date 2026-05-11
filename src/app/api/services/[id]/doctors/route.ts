@@ -1,128 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getAuthSession, unauthorizedResponse } from '@/lib/session'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import prisma from '@/lib/prisma'
 
 /**
  * GET /api/services/[id]/doctors
- *
- * Returns all doctors (Users with DoctorProfile) who have at least one
- * AppointmentSlot for this service, along with their availability status.
- *
- * A doctor is "available" if they have at least one open, non-full slot
- * with a slotDate >= today for this service.
+ * Fetch all doctors assigned to a specific department/service
  */
 export async function GET(
-    _req: NextRequest,
+    request: NextRequest,
     { params }: { params: { id: string } }
 ) {
     try {
-        const session = await getAuthSession()
-        if (!session?.user?.email) return unauthorizedResponse()
-
-        const serviceId = params.id
-
-        // Verify the service exists
-        const service = await prisma.service.findUnique({ where: { id: serviceId } })
-        if (!service) {
-            return NextResponse.json({ message: 'Service not found' }, { status: 404 })
+        const session = await getServerSession(authOptions)
+        if (!session?.user) {
+            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
         }
 
-        // Find all distinct doctorNames that have slots for this service
-        const slotDoctors = await prisma.appointmentSlot.findMany({
-            where: { serviceId },
-            select: { doctorName: true },
-            distinct: ['doctorName'],
-        })
+        const { id } = params
 
-        const doctorNames = slotDoctors.map(s => s.doctorName)
-
-        if (doctorNames.length === 0) {
-            return NextResponse.json({ data: [] })
-        }
-
-        // Find User records with DoctorProfile whose fullName is in doctorNames
-        const users = await prisma.user.findMany({
+        // Fetch doctors assigned to this department
+        const doctors = await prisma.doctorProfile.findMany({
             where: {
-                fullName: { in: doctorNames },
-                doctorProfile: { isNot: null },
+                departmentId: id,
+                // Only show doctors currently assigned (no end date or end date in future)
+                OR: [
+                    { departmentEndDate: null },
+                    { departmentEndDate: { gte: new Date() } }
+                ]
             },
-            select: {
-                id: true,
-                fullName: true,
-                email: true,
-                doctorProfile: {
-                    select: { specialization: true },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true,
+                    }
                 },
+                department: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        duration: true,
+                        price: true,
+                    }
+                }
             },
+            orderBy: {
+                createdAt: 'desc'
+            }
         })
 
-        // For each doctor, check if they have upcoming open slots with capacity
-        const now = new Date()
-        now.setHours(0, 0, 0, 0)
-
-        const availabilityChecks = await Promise.all(
-            users.map(async (u) => {
-                const upcomingSlot = await prisma.appointmentSlot.findFirst({
+        // Fetch available slots for each doctor
+        const doctorsWithSlots = await Promise.all(
+            doctors.map(async (doctor) => {
+                const slots = await prisma.appointmentSlot.findMany({
                     where: {
-                        serviceId,
-                        doctorName: u.fullName,
+                        serviceId: id,
+                        doctorName: doctor.user.fullName,
                         isOpen: true,
-                        slotDate: { gte: now },
+                        slotDate: {
+                            gte: new Date() // Only future slots
+                        }
                     },
-                    include: {
-                        _count: { select: { appointments: { where: { status: { in: ['PENDING', 'CONFIRMED'] } } } } },
+                    orderBy: {
+                        slotDate: 'asc'
                     },
+                    take: 10 // Limit to next 10 slots
                 })
 
-                const isAvailable =
-                    upcomingSlot !== null &&
-                    upcomingSlot._count.appointments < upcomingSlot.slotLimit
-
                 return {
-                    id: u.id,
-                    fullName: u.fullName,
-                    email: u.email,
-                    specialization: u.doctorProfile?.specialization ?? null,
-                    isAvailable,
+                    id: doctor.id,
+                    userId: doctor.userId,
+                    fullName: doctor.user.fullName,
+                    email: doctor.user.email,
+                    specialization: doctor.specialization,
+                    profileImage: doctor.profileImage,
+                    qualifications: doctor.qualifications,
+                    experience: doctor.experience,
+                    departmentStartDate: doctor.departmentStartDate,
+                    departmentEndDate: doctor.departmentEndDate,
+                    department: doctor.department,
+                    availableSlots: slots.map(slot => ({
+                        id: slot.id,
+                        slotDate: slot.slotDate, // Full DateTime with time information
+                        slotLimit: slot.slotLimit,
+                        isOpen: slot.isOpen,
+                    }))
                 }
             })
         )
 
-        // Also include doctors who have slots but no User record (legacy doctorName-only entries)
-        const matchedNames = new Set(users.map(u => u.fullName))
-        const unmatchedNames = doctorNames.filter(n => !matchedNames.has(n))
+        return NextResponse.json({
+            success: true,
+            data: doctorsWithSlots
+        })
 
-        const legacyDoctors = await Promise.all(
-            unmatchedNames.map(async (name) => {
-                const upcomingSlot = await prisma.appointmentSlot.findFirst({
-                    where: {
-                        serviceId,
-                        doctorName: name,
-                        isOpen: true,
-                        slotDate: { gte: now },
-                    },
-                    include: {
-                        _count: { select: { appointments: { where: { status: { in: ['PENDING', 'CONFIRMED'] } } } } },
-                    },
-                })
-
-                const isAvailable =
-                    upcomingSlot !== null &&
-                    upcomingSlot._count.appointments < upcomingSlot.slotLimit
-
-                return {
-                    id: `legacy:${name}`, // synthetic id for legacy entries
-                    fullName: name,
-                    email: null,
-                    specialization: null,
-                    isAvailable,
-                }
-            })
-        )
-
-        return NextResponse.json({ data: [...availabilityChecks, ...legacyDoctors] })
     } catch (error) {
-        console.error('Get service doctors error:', error)
-        return NextResponse.json({ message: 'An error occurred' }, { status: 500 })
+        console.error('Error fetching doctors for department:', error)
+        return NextResponse.json(
+            { message: 'Failed to fetch doctors' },
+            { status: 500 }
+        )
     }
 }

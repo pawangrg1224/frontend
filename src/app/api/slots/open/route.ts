@@ -6,8 +6,16 @@ export async function GET() {
         const slots = await prisma.appointmentSlot.findMany({
             where: { isOpen: true },
             include: {
-                service: { select: { name: true } },
-                _count: { select: { appointments: true } },
+                service: { select: { id: true, name: true, price: true } },
+                _count: {
+                    select: {
+                        appointments: {
+                            where: {
+                                status: { in: ['CONFIRMED', 'COMPLETED'] }
+                            }
+                        }
+                    }
+                },
             },
             orderBy: { slotDate: 'asc' },
         })
@@ -18,6 +26,12 @@ export async function GET() {
             doctorName: slot.doctorName,
             slotDate: slot.slotDate.toISOString(),
             remainingCapacity: slot.slotLimit - slot._count.appointments,
+            slotLimit: slot.slotLimit,
+            service: {
+                id: slot.service.id,
+                name: slot.service.name,
+                price: slot.service.price,
+            },
         }))
 
         return NextResponse.json(openSlots)

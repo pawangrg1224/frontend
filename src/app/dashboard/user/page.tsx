@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { Calendar, Clock, Stethoscope, ChevronRight, Activity, Loader } from 'lucide-react'
+import { Calendar, Clock, ChevronRight, Activity, Loader } from 'lucide-react'
 
 interface PatientStats {
     upcomingAppointments: number
@@ -67,7 +67,6 @@ export default function UserHomePage() {
                     {[
                         { label: 'My appointments', href: '/dashboard/user/my-appointments', icon: Calendar },
                         { label: 'Browse open slots', href: '/dashboard/user/open-slots', icon: Clock },
-                        { label: 'Hospital departments', href: '/dashboard/services', icon: Stethoscope },
                     ].map(({ label, href, icon: Icon }) => (
                         <Link key={href} href={href} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                             <div className="flex items-center gap-3">

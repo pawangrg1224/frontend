@@ -19,6 +19,40 @@ export async function PATCH(
     const { id } = params
 
     try {
+        const contentType = request.headers.get('content-type') ?? ''
+
+        // ── JSON body (used for quick department assignment from slots page) ──
+        if (contentType.includes('application/json')) {
+            const body = await request.json()
+            const { departmentId, departmentStartDate, departmentEndDate } = body
+
+            const updated = await prisma.doctorProfile.update({
+                where: { userId: id },
+                data: {
+                    ...(departmentId !== undefined && { departmentId: departmentId || null }),
+                    ...(departmentStartDate !== undefined && {
+                        departmentStartDate: departmentStartDate ? new Date(departmentStartDate) : null,
+                    }),
+                    ...(departmentEndDate !== undefined && {
+                        departmentEndDate: departmentEndDate ? new Date(departmentEndDate) : null,
+                    }),
+                },
+                select: {
+                    id: true,
+                    specialization: true,
+                    profileImage: true,
+                    qualifications: true,
+                    experience: true,
+                    departmentId: true,
+                    departmentStartDate: true,
+                    departmentEndDate: true,
+                    department: { select: { id: true, name: true } },
+                },
+            })
+            return NextResponse.json(updated)
+        }
+
+        // ── Multipart form data (used from doctor profile edit page) ──────────
         const formData = await request.formData()
 
         const specialization = formData.get('specialization') as string | null
@@ -67,6 +101,8 @@ export async function PATCH(
                 qualifications: true,
                 experience: true,
                 departmentId: true,
+                departmentStartDate: true,
+                departmentEndDate: true,
                 department: { select: { id: true, name: true } },
             },
         })

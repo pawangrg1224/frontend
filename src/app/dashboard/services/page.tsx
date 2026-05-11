@@ -134,14 +134,14 @@ export default function DepartmentsPage() {
   const flash = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 3000) }
 
   if (status === 'loading' || isLoading) return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center py-20">
       <Loader className="w-8 h-8 animate-spin text-blue-600" />
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-6 flex items-center justify-between">
+    <div className="p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
             <Stethoscope className="w-6 h-6 text-blue-600" />
@@ -159,7 +159,7 @@ export default function DepartmentsPage() {
         </button>
       </div>
 
-      <div className="p-6">
+      <div>
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
             <p className="text-red-700 font-medium">{error}</p>

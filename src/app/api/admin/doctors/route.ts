@@ -30,6 +30,8 @@ export async function GET() {
                         qualifications: true,
                         experience: true,
                         departmentId: true,
+                        departmentStartDate: true,
+                        departmentEndDate: true,
                         department: { select: { id: true, name: true } },
                     },
                 },

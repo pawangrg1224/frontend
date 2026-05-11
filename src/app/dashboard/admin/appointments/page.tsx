@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Loader, Plus, Edit2, Trash2, X, Save } from 'lucide-react'
+import { ChevronLeft, Loader, Plus, Edit2, Trash2, X, Save, Check, XCircle } from 'lucide-react'
+import { toast, Toaster } from 'sonner'
 
 interface Appointment {
   id: string
@@ -14,6 +15,7 @@ interface Appointment {
   customer: { id: string; name: string; email: string }
   service: { id: string; name: string }
   user: { fullName: string; email: string }
+  slot?: { id: string; slotLimit: number }
 }
 
 interface Customer { id: string; name: string }
@@ -43,7 +45,7 @@ const AdminAppointmentsPage = () => {
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [successMsg, setSuccessMsg] = useState('')
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   // Modal state
   const [showModal, setShowModal] = useState(false)
@@ -82,6 +84,50 @@ const AdminAppointmentsPage = () => {
       setError('Failed to load data')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleAccept = async (apt: Appointment) => {
+    setProcessingId(apt.id)
+    try {
+      const res = await fetch(`/api/admin/appointments/${apt.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CONFIRMED' }),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        toast.error(d.message || 'Failed to accept appointment')
+        return
+      }
+      toast.success('Appointment accepted!')
+      fetchAll()
+    } catch {
+      toast.error('An error occurred')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleReject = async (apt: Appointment) => {
+    setProcessingId(apt.id)
+    try {
+      const res = await fetch(`/api/admin/appointments/${apt.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        toast.error(d.message || 'Failed to reject appointment')
+        return
+      }
+      toast.success('Appointment rejected!')
+      fetchAll()
+    } catch {
+      toast.error('An error occurred')
+    } finally {
+      setProcessingId(null)
     }
   }
 
@@ -131,14 +177,14 @@ const AdminAppointmentsPage = () => {
       })
       if (!res.ok) {
         const d = await res.json()
-        setError(d.message || 'Failed to save')
+        toast.error(d.message || 'Failed to save')
         return
       }
       setShowModal(false)
-      showSuccess(editingId ? 'Appointment updated!' : 'Appointment created!')
+      toast.success(editingId ? 'Appointment updated!' : 'Appointment created!')
       fetchAll()
     } catch {
-      setError('An error occurred')
+      toast.error('An error occurred')
     } finally {
       setIsSaving(false)
     }
@@ -150,16 +196,15 @@ const AdminAppointmentsPage = () => {
       const res = await fetch(`/api/admin/appointments/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed to delete')
       setAppointments(prev => prev.filter(a => a.id !== id))
-      showSuccess('Appointment deleted!')
+      toast.success('Appointment deleted!')
     } catch {
-      setError('Failed to delete appointment')
+      toast.error('Failed to delete appointment')
     }
   }
 
-  const showSuccess = (msg: string) => {
-    setSuccessMsg(msg)
-    setTimeout(() => setSuccessMsg(''), 3000)
-  }
+  // Separate pending and other appointments
+  const pendingAppointments = appointments.filter(apt => apt.status === 'PENDING')
+  const otherAppointments = appointments.filter(apt => apt.status !== 'PENDING')
 
   if (isLoading) {
     return (
@@ -171,6 +216,8 @@ const AdminAppointmentsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster position="top-right" richColors />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-6">
         <Link href="/dashboard/admin" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
@@ -179,7 +226,7 @@ const AdminAppointmentsPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">All Appointments</h1>
-            <p className="text-gray-600 mt-1">Create, edit and delete any appointment</p>
+            <p className="text-gray-600 mt-1">Manage appointment requests and bookings</p>
           </div>
           <button
             onClick={openCreate}
@@ -191,81 +238,162 @@ const AdminAppointmentsPage = () => {
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-6 space-y-6">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
             <p className="text-red-700 font-medium">{error}</p>
             <button onClick={() => setError('')}><X size={16} className="text-red-500" /></button>
           </div>
         )}
-        {successMsg && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-700 font-medium">{successMsg}</p>
+
+        {/* Pending Appointments Section */}
+        {pendingAppointments.length > 0 && (
+          <div>
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Pending Requests</h2>
+              <p className="text-sm text-gray-600">New appointment requests waiting for approval</p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+              <table className="w-full text-sm min-w-[700px]">
+                <thead className="border-b border-gray-200 bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">User</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Customer</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Service</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Date</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Notes</th>
+                    <th className="px-6 py-3 text-right font-semibold text-gray-900">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {pendingAppointments.map((apt) => (
+                    <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{apt.user.fullName}</div>
+                        <div className="text-xs text-gray-500">{apt.user.email}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{apt.customer.name}</div>
+                        <div className="text-xs text-gray-500">{apt.customer.email}</div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{apt.service.name}</td>
+                      <td className="px-6 py-4 text-gray-600">{new Date(apt.date).toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        {apt.notes ? (
+                          <div className="text-xs text-gray-600 max-w-xs truncate" title={apt.notes}>
+                            {apt.notes}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">No notes</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleAccept(apt)}
+                            disabled={processingId === apt.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+                            title="Accept"
+                          >
+                            {processingId === apt.id ? (
+                              <Loader className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Check size={14} />
+                            )}
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleReject(apt)}
+                            disabled={processingId === apt.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:bg-gray-400 transition-colors"
+                            title="Reject"
+                          >
+                            {processingId === apt.id ? (
+                              <Loader className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <XCircle size={14} />
+                            )}
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {appointments.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
-            <p className="text-gray-500 mb-4">No appointments yet</p>
-            <button onClick={openCreate} className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
-              <Plus size={18} /> Create first appointment
-            </button>
+        {/* All Appointments Section */}
+        <div>
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900">All Appointments</h2>
+            <p className="text-sm text-gray-600">Complete list of all appointments</p>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
-              <thead className="border-b border-gray-200 bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-900">User</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-900">Customer</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-900">Service</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-900">Date</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-900">Status</th>
-                  <th className="px-6 py-3 text-right font-semibold text-gray-900">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {appointments.map((apt) => (
-                  <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{apt.user.fullName}</div>
-                      <div className="text-xs text-gray-500">{apt.user.email}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{apt.customer.name}</div>
-                      <div className="text-xs text-gray-500">{apt.customer.email}</div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{apt.service.name}</td>
-                    <td className="px-6 py-4 text-gray-600">{new Date(apt.date).toLocaleString()}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(apt.status)}`}>
-                        {apt.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEdit(apt)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(apt.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+          {appointments.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+              <p className="text-gray-500 mb-4">No appointments yet</p>
+              <button onClick={openCreate} className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
+                <Plus size={18} /> Create first appointment
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+              <table className="w-full text-sm min-w-[700px]">
+                <thead className="border-b border-gray-200 bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">User</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Customer</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Service</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Date</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Status</th>
+                    <th className="px-6 py-3 text-right font-semibold text-gray-900">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {appointments.map((apt) => (
+                    <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{apt.user.fullName}</div>
+                        <div className="text-xs text-gray-500">{apt.user.email}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{apt.customer.name}</div>
+                        <div className="text-xs text-gray-500">{apt.customer.email}</div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{apt.service.name}</td>
+                      <td className="px-6 py-4 text-gray-600">{new Date(apt.date).toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(apt.status)}`}>
+                          {apt.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEdit(apt)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(apt.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal */}
