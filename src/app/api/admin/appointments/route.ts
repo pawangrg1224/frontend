@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const appointments = await prisma.appointment.findMany({
       include: {
-        customer: { select: { id: true, name: true, email: true } },
+        customer: { select: { id: true, name: true, email: true, phone: true } },
         service: { select: { id: true, name: true } },
         user: { select: { fullName: true, email: true } },
       },
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         notes,
       },
       include: {
-        customer: { select: { id: true, name: true, email: true } },
+        customer: { select: { id: true, name: true, email: true, phone: true } },
         service: { select: { id: true, name: true } },
         user: { select: { fullName: true, email: true } },
       },

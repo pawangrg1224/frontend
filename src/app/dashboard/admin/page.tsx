@@ -11,7 +11,7 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AdminStats {
-    totalUsers: number
+    totalDoctors: number
     totalAppointments: number
     pendingAppointments: number
     totalCustomers: number
@@ -50,7 +50,7 @@ export default function AdminDashboardPage() {
     const { data: session, status } = useSession()
 
     const [stats, setStats] = useState<AdminStats>({
-        totalUsers: 0,
+        totalDoctors: 0,
         totalAppointments: 0,
         pendingAppointments: 0,
         totalCustomers: 0,
@@ -65,17 +65,17 @@ export default function AdminDashboardPage() {
 
         const load = async () => {
             try {
-                const [usersRes, apptRes, custRes, svcRes] = await Promise.all([
-                    fetch('/api/admin/users/count'),
+                const [doctorsRes, apptRes, custRes, svcRes] = await Promise.all([
+                    fetch('/api/admin/doctors'),
                     fetch('/api/admin/appointments/count'),
                     fetch('/api/admin/customers/count'),
                     fetch('/api/admin/services/count'),
                 ])
-                const [users, appt, cust, svc] = await Promise.all([
-                    usersRes.json(), apptRes.json(), custRes.json(), svcRes.json(),
+                const [doctors, appt, cust, svc] = await Promise.all([
+                    doctorsRes.json(), apptRes.json(), custRes.json(), svcRes.json(),
                 ])
                 setStats({
-                    totalUsers: users.count ?? 0,
+                    totalDoctors: doctors.data?.length ?? 0,
                     totalAppointments: appt.count ?? 0,
                     pendingAppointments: appt.pending ?? 0,
                     totalCustomers: cust.count ?? 0,
@@ -117,7 +117,7 @@ export default function AdminDashboardPage() {
 
             {/* Stat cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                <StatCard label="Staff Members" value={stats.totalUsers} icon={UserCog} bgColor="bg-blue-100" iconColor="text-blue-600" sub="Active staff" />
+                <StatCard label="Doctors" value={stats.totalDoctors} icon={UserCog} bgColor="bg-blue-100" iconColor="text-blue-600" sub="Active doctors" />
                 <StatCard label="Appointments" value={stats.totalAppointments} icon={Calendar} bgColor="bg-green-100" iconColor="text-green-600" sub="Total scheduled" />
                 <StatCard label="Pending" value={stats.pendingAppointments} icon={Clock} bgColor="bg-yellow-100" iconColor="text-yellow-600" sub="Awaiting confirmation" />
                 <StatCard label="Patients" value={stats.totalCustomers} icon={Users} bgColor="bg-purple-100" iconColor="text-purple-600" sub="Registered patients" />
@@ -128,12 +128,12 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[
                     {
-                        href: '/dashboard/admin/users',
+                        href: '/dashboard/admin/doctors',
                         icon: UserCog,
                         color: 'blue',
-                        title: 'Staff Management',
-                        desc: 'Manage doctors and hospital staff',
-                        stat: `${stats.totalUsers} staff members`,
+                        title: 'Doctor Management',
+                        desc: 'Manage doctors and medical staff',
+                        stat: `${stats.totalDoctors} doctors`,
                     },
                     {
                         href: '/dashboard/admin/appointments',
@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
                         stat: `${stats.totalAppointments} scheduled`,
                     },
                     {
-                        href: '/dashboard/admin/customers',
+                        href: '/dashboard/admin/patients',
                         icon: Users,
                         color: 'purple',
                         title: 'Patients',
@@ -166,14 +166,6 @@ export default function AdminDashboardPage() {
                         title: 'Analytics',
                         desc: 'Reports and performance metrics',
                         stat: 'View reports',
-                    },
-                    {
-                        href: '/dashboard/admin/availability',
-                        icon: Activity,
-                        color: 'orange',
-                        title: 'Doctor Availability',
-                        desc: 'Manage doctor schedules',
-                        stat: 'Set schedules',
                     },
                 ].map(({ href, icon: Icon, color, title, desc, stat }) => (
                     <Link

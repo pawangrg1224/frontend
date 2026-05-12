@@ -53,3 +53,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
   }
 }
+
+/**
+ * PUT /api/admin/services/[id]
+ * Body: { name: string, description?: string, price: number, duration?: number }
+ * Updates department details.
+ */
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getAuthSession()
+  if (!session?.user?.email) return unauthorizedResponse()
+  if (session.user.role !== 'ADMIN') return forbiddenResponse()
+  const { id } = await params
+
+  try {
+    const { name, description, price, duration } = await request.json()
+
+    if (!name || !price) {
+      return NextResponse.json({ message: 'Name and price are required' }, { status: 400 })
+    }
+
+    const updated = await prisma.service.update({
+      where: { id },
+      data: {
+        name,
+        description: description || null,
+        price: parseFloat(price),
+        duration: duration || 60,
+      },
+    })
+    return NextResponse.json(updated)
+  } catch (err) {
+    console.error('Error updating service:', err)
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
+  }
+}

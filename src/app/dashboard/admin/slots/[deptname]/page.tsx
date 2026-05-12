@@ -82,11 +82,18 @@ function formatTimeRange(dateString: string): string {
     }
 }
 
+function createSlug(name: string): string {
+    return name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+}
+
 export default function DepartmentSlotsPage() {
     const params = useParams()
     const router = useRouter()
     const { status } = useSession()
-    const departmentId = params.id as string
+    const departmentId = params.deptname as string
 
     const [service, setService] = useState<Service | null>(null)
     const [doctors, setDoctors] = useState<Doctor[]>([])
@@ -440,11 +447,13 @@ export default function DepartmentSlotsPage() {
                                             <div className="space-y-3">
                                                 {dateSlots.map((slot) => {
                                                     const timeRange = formatTimeRange(slot.slotDate)
+                                                    const deptSlug = service ? createSlug(service.name) : 'department'
 
                                                     return (
                                                         <div
                                                             key={slot.id}
-                                                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                                                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
+                                                            onClick={() => router.push(`/dashboard/admin/slots/${deptSlug}/${slot.id}`)}
                                                         >
                                                             <div className="flex items-center gap-3">
                                                                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center">
@@ -469,8 +478,11 @@ export default function DepartmentSlotsPage() {
                                                                 </div>
                                                             </div>
                                                             <button
-                                                                onClick={() => handleDeleteSlot(slot.id)}
-                                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    handleDeleteSlot(slot.id)
+                                                                }}
+                                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                                                 title="Delete slot"
                                                             >
                                                                 <Trash2 size={14} />

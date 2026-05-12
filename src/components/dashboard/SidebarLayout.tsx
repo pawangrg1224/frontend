@@ -92,7 +92,10 @@ export default function SidebarLayout({ config, children }: Props) {
             // Role check
             if (config.requireRole) {
                 const userRole = (session?.user as { role?: string })?.role ?? 'USER'
-                if (userRole !== config.requireRole) { router.replace('/dashboard'); return }
+                if (userRole !== config.requireRole) {
+                    router.replace('/auth/login?error=unauthorized');
+                    return
+                }
             }
             // Allowlist check
             const allowed = config.allowlist.some(a => pathname === a || pathname.startsWith(a + '/'))
@@ -105,23 +108,18 @@ export default function SidebarLayout({ config, children }: Props) {
         if (pathname.includes('/services')) setDeptExpanded(true)
     }, [pathname])
 
-    // Load departments for expandable nav
+    // Load departments for expandable nav (non-blocking)
     useEffect(() => {
         if (status !== 'authenticated') return
+        // Load departments in background without blocking UI
         fetch('/api/services?limit=100')
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data?.data) setDepartments(data.data) })
             .catch(() => { })
     }, [status])
 
-    // ── Loading ──
-    if (status === 'loading') {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <Loader className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-        )
-    }
+    // ── Loading - Show layout immediately, don't block ──
+    // Removed the loading screen - let the page render while session loads
 
     if (status === 'unauthenticated') return null
 
@@ -190,8 +188,8 @@ export default function SidebarLayout({ config, children }: Props) {
                                             setDeptExpanded(v => !v)
                                         }}
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${isDeptActive
-                                                ? 'bg-blue-50 text-blue-600 font-semibold'
-                                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                            ? 'bg-blue-50 text-blue-600 font-semibold'
+                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                                             }`}
                                     >
                                         <Icon size={20} className="flex-shrink-0" />
@@ -219,8 +217,8 @@ export default function SidebarLayout({ config, children }: Props) {
                                                         key={dept.id}
                                                         href={deptHref}
                                                         className={`flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-all group ${isActive
-                                                                ? 'bg-blue-50 text-blue-600 font-medium'
-                                                                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+                                                            ? 'bg-blue-50 text-blue-600 font-medium'
+                                                            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
                                                             }`}
                                                     >
                                                         <DeptIcon size={15} className={`flex-shrink-0 ${isActive ? 'text-blue-500' : color} group-hover:scale-110 transition-transform`} />
@@ -243,8 +241,8 @@ export default function SidebarLayout({ config, children }: Props) {
                                 key={href}
                                 href={href}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${active
-                                        ? 'bg-blue-50 text-blue-600 font-semibold'
-                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                    ? 'bg-blue-50 text-blue-600 font-semibold'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                                     }`}
                             >
                                 <Icon size={20} className="flex-shrink-0" />

@@ -12,7 +12,8 @@ interface Appointment {
   date: string
   status: string
   notes?: string
-  customer: { id: string; name: string; email: string }
+  tokenNumber?: number
+  customer: { id: string; name: string; email: string; phone?: string }
   service: { id: string; name: string }
   user: { fullName: string; email: string }
   slot?: { id: string; slotLimit: number }
@@ -31,6 +32,13 @@ const statusColor = (s: string) => {
     case 'CANCELLED': return 'bg-red-100 text-red-700'
     default: return 'bg-yellow-100 text-yellow-700'
   }
+}
+
+// Extract problem description from notes
+const extractProblem = (notes?: string): string => {
+  if (!notes) return ''
+  const problemMatch = notes.match(/Problem:\s*(.+)/i)
+  return problemMatch ? problemMatch[1].trim() : notes
 }
 
 const emptyForm = { customerId: '', serviceId: '', userId: '', date: '', status: 'PENDING', notes: '' }
@@ -257,11 +265,11 @@ const AdminAppointmentsPage = () => {
               <table className="w-full text-sm min-w-[700px]">
                 <thead className="border-b border-gray-200 bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-900">User</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Customer</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Patient</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Phone</th>
                     <th className="px-6 py-3 text-left font-semibold text-gray-900">Service</th>
                     <th className="px-6 py-3 text-left font-semibold text-gray-900">Date</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Notes</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Problem</th>
                     <th className="px-6 py-3 text-right font-semibold text-gray-900">Actions</th>
                   </tr>
                 </thead>
@@ -269,22 +277,21 @@ const AdminAppointmentsPage = () => {
                   {pendingAppointments.map((apt) => (
                     <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{apt.user.fullName}</div>
-                        <div className="text-xs text-gray-500">{apt.user.email}</div>
-                      </td>
-                      <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{apt.customer.name}</div>
                         <div className="text-xs text-gray-500">{apt.customer.email}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{apt.customer.phone || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 text-gray-600">{apt.service.name}</td>
                       <td className="px-6 py-4 text-gray-600">{new Date(apt.date).toLocaleString()}</td>
                       <td className="px-6 py-4">
                         {apt.notes ? (
-                          <div className="text-xs text-gray-600 max-w-xs truncate" title={apt.notes}>
-                            {apt.notes}
+                          <div className="text-xs text-gray-600 max-w-xs truncate" title={extractProblem(apt.notes)}>
+                            {extractProblem(apt.notes)}
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-400">No notes</span>
+                          <span className="text-xs text-gray-400">No problem description</span>
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -343,10 +350,11 @@ const AdminAppointmentsPage = () => {
               <table className="w-full text-sm min-w-[700px]">
                 <thead className="border-b border-gray-200 bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-900">User</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Customer</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Patient</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Phone</th>
                     <th className="px-6 py-3 text-left font-semibold text-gray-900">Service</th>
                     <th className="px-6 py-3 text-left font-semibold text-gray-900">Date</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-900">Token</th>
                     <th className="px-6 py-3 text-left font-semibold text-gray-900">Status</th>
                     <th className="px-6 py-3 text-right font-semibold text-gray-900">Actions</th>
                   </tr>
@@ -355,15 +363,23 @@ const AdminAppointmentsPage = () => {
                   {appointments.map((apt) => (
                     <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{apt.user.fullName}</div>
-                        <div className="text-xs text-gray-500">{apt.user.email}</div>
-                      </td>
-                      <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{apt.customer.name}</div>
                         <div className="text-xs text-gray-500">{apt.customer.email}</div>
                       </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{apt.customer.phone || 'N/A'}</div>
+                      </td>
                       <td className="px-6 py-4 text-gray-600">{apt.service.name}</td>
                       <td className="px-6 py-4 text-gray-600">{new Date(apt.date).toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        {apt.tokenNumber ? (
+                          <span className="text-lg font-bold text-blue-600">
+                            #{apt.tokenNumber}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(apt.status)}`}>
                           {apt.status}

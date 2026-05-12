@@ -10,7 +10,7 @@ interface FormErrors {
   password?: string
   confirmPassword?: string
   fullName?: string
-  companyName?: string
+  phoneNumber?: string
   role?: string
   terms?: string
 }
@@ -20,7 +20,7 @@ const SignupPage = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    companyName: '',
+    phoneNumber: '',
     password: '',
     confirmPassword: '',
     role: 'USER',
@@ -49,11 +49,12 @@ const SignupPage = () => {
       newErrors.email = 'Please enter a valid email address'
     }
 
-    // Company Name validation
-    if (!formData.companyName.trim()) {
-      newErrors.companyName = 'Company name is required'
-    } else if (formData.companyName.length < 2) {
-      newErrors.companyName = 'Company name must be at least 2 characters'
+    // Phone Number validation
+    const phoneRegex = /^[0-9]{10}$/
+    if (!formData.phoneNumber.trim()) {
+      newErrors.phoneNumber = 'Phone number is required'
+    } else if (!phoneRegex.test(formData.phoneNumber.replace(/\s/g, ''))) {
+      newErrors.phoneNumber = 'Please enter a valid 10-digit phone number'
     }
 
     // Password validation
@@ -109,7 +110,7 @@ const SignupPage = () => {
         body: JSON.stringify({
           name: formData.fullName,
           email: formData.email,
-          company: formData.companyName,
+          company: formData.phoneNumber,
           password: formData.password,
           role: formData.role,
         }),
@@ -167,7 +168,7 @@ const SignupPage = () => {
             </div>
 
             {/* General Error Alert */}
-            {errors.email && !['password', 'confirmPassword', 'fullName', 'companyName', 'terms'].includes(Object.keys(errors)[0]) && (
+            {errors.email && !['password', 'confirmPassword', 'fullName', 'phoneNumber', 'terms'].includes(Object.keys(errors)[0]) && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-700 font-medium">{errors.email}</p>
               </div>
@@ -215,24 +216,25 @@ const SignupPage = () => {
                 {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
               </div>
 
-              {/* Company Name Field */}
+              {/* Phone Number Field */}
               <div>
-                <label htmlFor="companyName" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company Name
+                <label htmlFor="phoneNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Phone Number
                 </label>
                 <input
-                  id="companyName"
-                  name="companyName"
-                  type="text"
-                  value={formData.companyName}
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="tel"
+                  value={formData.phoneNumber}
                   onChange={handleChange}
-                  placeholder="Your Company Inc."
-                  className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white ${errors.companyName
+                  placeholder="9876543210"
+                  maxLength={10}
+                  className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white ${errors.phoneNumber
                     ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
                     : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
                     }`}
                 />
-                {errors.companyName && <p className="text-sm text-red-600 mt-1">{errors.companyName}</p>}
+                {errors.phoneNumber && <p className="text-sm text-red-600 mt-1">{errors.phoneNumber}</p>}
               </div>
 
               {/* Role Selection */}

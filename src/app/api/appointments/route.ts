@@ -74,18 +74,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For patient self-booking, resolve their customer record by email
+    // Extract patient info from notes if present
+    let nameFromNotes = ''
+    let emailFromNotes = ''
+    let phoneFromNotes = ''
+    if (notes) {
+      const nameMatch = notes.match(/Patient:\s*(.+)/i)
+      const emailMatch = notes.match(/Email:\s*(.+)/i)
+      const phoneMatch = notes.match(/Phone:\s*(.+)/i)
+
+      if (nameMatch) nameFromNotes = nameMatch[1].trim()
+      if (emailMatch) emailFromNotes = emailMatch[1].trim()
+      if (phoneMatch) phoneFromNotes = phoneMatch[1].trim()
+    }
+
+    // For patient self-booking, resolve or create their customer record
     let resolvedCustomerId = customerId
     if (patientSelf && !customerId) {
-      const customerRecord = await prisma.customer.findUnique({
-        where: { email: user.email },
+      // Use email from notes if available, otherwise use user email
+      const customerEmail = emailFromNotes || user.email
+
+      // Try to find existing customer record by email
+      let customerRecord = await prisma.customer.findUnique({
+        where: { email: customerEmail },
       })
+
+      // If no customer record exists, create one with form data
       if (!customerRecord) {
-        return NextResponse.json(
-          { message: "No patient record found for your account. Please contact the clinic." },
-          { status: 404 },
-        )
+        customerRecord = await prisma.customer.create({
+          data: {
+            name: nameFromNotes || user.name || 'Patient',
+            email: customerEmail,
+            phone: phoneFromNotes || user.company || '',
+          },
+        })
+      } else {
+        // Update existing customer record with form data if provided
+        const updateData: any = {}
+        if (nameFromNotes) updateData.name = nameFromNotes
+        if (phoneFromNotes) updateData.phone = phoneFromNotes
+
+        if (Object.keys(updateData).length > 0) {
+          customerRecord = await prisma.customer.update({
+            where: { id: customerRecord.id },
+            data: updateData,
+          })
+        }
       }
+
       resolvedCustomerId = customerRecord.id
     }
 

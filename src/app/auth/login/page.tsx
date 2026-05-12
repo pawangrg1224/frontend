@@ -20,6 +20,9 @@ const LoginPage = () => {
     if (searchParams.get('signup') === 'success') {
       setSuccess('Account created successfully! Please sign in with your credentials.')
     }
+    if (searchParams.get('error') === 'unauthorized') {
+      setError('Access denied. You need admin privileges to access that page.')
+    }
   }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {

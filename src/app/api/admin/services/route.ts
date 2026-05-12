@@ -40,3 +40,54 @@ export async function GET(request: Request) {
     })
   }
 }
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user?.email) {
+    return new Response(JSON.stringify({ message: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const userRole = (session.user as { role?: string }).role
+  if (userRole !== 'ADMIN') {
+    return new Response(JSON.stringify({ message: 'Admin access required' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  try {
+    const body = await request.json()
+    const { name, description, price, duration } = body
+
+    if (!name || !price) {
+      return new Response(JSON.stringify({ message: 'Name and price are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const service = await prisma.service.create({
+      data: {
+        name,
+        description: description || null,
+        price: parseFloat(price),
+        duration: duration || 60,
+      },
+    })
+
+    return new Response(JSON.stringify(service), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  } catch (err) {
+    console.error('Error creating service:', err)
+    return new Response(JSON.stringify({ message: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+}

@@ -4,30 +4,73 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Loader, XCircle, Clock, CheckCircle, CheckCheck, Plus, Stethoscope } from 'lucide-react'
+import { Calendar, Loader, XCircle, Clock, CheckCircle, CheckCheck, Plus, Stethoscope, User, MapPin } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Appointment {
     id: string
     date: string
     status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
     notes?: string
-    service: { id: string; name: string }
+    tokenNumber?: number | null
+    service: { id: string; name: string; price: number }
     slot?: { doctorName: string; slotDate: string; slotLimit: number } | null
     customer: { name: string; email: string; phone: string }
 }
 
-const STATUS_STYLES: Record<string, string> = {
-    PENDING: 'bg-yellow-100 text-yellow-800',
-    CONFIRMED: 'bg-blue-100   text-blue-800',
-    CANCELLED: 'bg-red-100    text-red-800',
-    COMPLETED: 'bg-green-100  text-green-800',
+const STATUS_CONFIG = {
+    PENDING: {
+        label: 'Pending',
+        color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        icon: Clock,
+        dotColor: 'bg-yellow-500',
+    },
+    CONFIRMED: {
+        label: 'Confirmed',
+        color: 'bg-green-50 text-green-700 border-green-200',
+        icon: CheckCircle,
+        dotColor: 'bg-green-500',
+    },
+    CANCELLED: {
+        label: 'Cancelled',
+        color: 'bg-red-50 text-red-700 border-red-200',
+        icon: XCircle,
+        dotColor: 'bg-red-500',
+    },
+    COMPLETED: {
+        label: 'Completed',
+        color: 'bg-blue-50 text-blue-700 border-blue-200',
+        icon: CheckCheck,
+        dotColor: 'bg-blue-500',
+    },
 }
 
-const STATUS_ICONS: Record<string, React.ReactNode> = {
-    PENDING: <Clock size={12} />,
-    CONFIRMED: <CheckCircle size={12} />,
-    CANCELLED: <XCircle size={12} />,
-    COMPLETED: <CheckCheck size={12} />,
+function formatDate(dateString: string): string {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    })
+}
+
+function formatTime(dateString: string): string {
+    const date = new Date(dateString)
+    const startHour = date.getHours()
+    const endHour = startHour + 1
+
+    const startAmpm = startHour >= 12 ? 'PM' : 'AM'
+    const startH12 = startHour > 12 ? startHour - 12 : startHour === 0 ? 12 : startHour
+
+    const endAmpm = endHour >= 12 ? 'PM' : 'AM'
+    const endH12 = endHour > 12 ? endHour - 12 : endHour === 0 ? 12 : endHour
+
+    if (startAmpm === endAmpm) {
+        return `${startH12}:00 to ${endH12}:00 ${endAmpm}`
+    } else {
+        return `${startH12}:00 ${startAmpm} to ${endH12}:00 ${endAmpm}`
+    }
 }
 
 export default function MyAppointmentsPage() {
@@ -36,7 +79,6 @@ export default function MyAppointmentsPage() {
     const [appointments, setAppointments] = useState<Appointment[]>([])
     const [loading, setLoading] = useState(true)
     const [cancelling, setCancelling] = useState<string | null>(null)
-    const [error, setError] = useState('')
 
     useEffect(() => {
         if (status === 'unauthenticated') router.push('/auth/login')
@@ -47,11 +89,12 @@ export default function MyAppointmentsPage() {
         fetch('/api/appointments?limit=50')
             .then(r => r.json())
             .then(d => setAppointments(d.data || []))
+            .catch(() => toast.error('Failed to load appointments'))
             .finally(() => setLoading(false))
     }, [status])
 
     const handleCancel = async (id: string) => {
-        if (!confirm('Cancel this appointment?')) return
+        if (!confirm('Are you sure you want to cancel this appointment?')) return
         setCancelling(id)
         try {
             const res = await fetch(`/api/appointments/${id}`, {
@@ -61,134 +104,220 @@ export default function MyAppointmentsPage() {
             })
             if (res.ok) {
                 setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: 'CANCELLED' } : a))
+                toast.success('Appointment cancelled successfully')
             } else {
                 const d = await res.json()
-                setError(d.message || 'Failed to cancel')
+                toast.error(d.message || 'Failed to cancel appointment')
             }
-        } finally { setCancelling(null) }
+        } catch {
+            toast.error('Failed to cancel appointment')
+        } finally {
+            setCancelling(null)
+        }
     }
 
     if (status === 'loading' || loading) return (
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center py-20">
             <Loader className="w-8 h-8 animate-spin text-blue-600" />
         </div>
     )
 
-    const active = appointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED')
+    const upcoming = appointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED')
     const past = appointments.filter(a => a.status === 'COMPLETED' || a.status === 'CANCELLED')
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">My Appointments</h1>
-                    <p className="text-gray-500 text-sm mt-0.5">Welcome, {session?.user?.name}</p>
+        <div className="p-6 max-w-5xl mx-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-8 mb-8 text-white">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">My Appointments</h1>
+                        <p className="text-blue-100">Welcome back, {session?.user?.name || 'User'}</p>
+                    </div>
+                    <Link
+                        href="/dashboard/user/open-slots"
+                        className="flex items-center gap-2 bg-white text-blue-600 px-6 py-3 rounded-xl hover:bg-blue-50 font-semibold transition-colors shadow-lg"
+                    >
+                        <Plus size={20} />
+                        Book Appointment
+                    </Link>
                 </div>
-                <Link href="/booking"
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium text-sm">
-                    <Plus size={16} /> Book New
-                </Link>
             </div>
 
-            <div className="max-w-3xl mx-auto p-6 space-y-6">
-                {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
-                )}
-
-                {appointments.length === 0 ? (
-                    <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-                        <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500 font-medium">No appointments yet</p>
-                        <p className="text-gray-400 text-sm mt-1">Book your first appointment to get started</p>
-                        <Link href="/booking"
-                            className="mt-4 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium text-sm">
-                            <Plus size={16} /> Book Appointment
-                        </Link>
+            {appointments.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+                    <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Calendar className="w-10 h-10 text-blue-600" />
                     </div>
-                ) : (
-                    <>
-                        {/* Active */}
-                        {active.length > 0 && (
-                            <div>
-                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Upcoming</h2>
-                                <div className="space-y-3">
-                                    {active.map(apt => (
-                                        <div key={apt.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-sm transition-shadow">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                                                        <Stethoscope className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">No Appointments Yet</h2>
+                    <p className="text-gray-500 mb-6">Book your first appointment to get started</p>
+                    <Link
+                        href="/dashboard/user/open-slots"
+                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 font-semibold transition-colors"
+                    >
+                        <Plus size={20} />
+                        Book Your First Appointment
+                    </Link>
+                </div>
+            ) : (
+                <div className="space-y-8">
+                    {/* Upcoming Appointments */}
+                    {upcoming.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
+                                <h2 className="text-xl font-bold text-gray-900">Upcoming Appointments</h2>
+                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                                    {upcoming.length}
+                                </span>
+                            </div>
+                            <div className="grid gap-4">
+                                {upcoming.map(apt => {
+                                    const statusConfig = STATUS_CONFIG[apt.status]
+                                    const StatusIcon = statusConfig.icon
+
+                                    return (
+                                        <div
+                                            key={apt.id}
+                                            className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-all relative"
+                                        >
+                                            {/* Token Number - Center Top */}
+                                            {apt.tokenNumber && apt.status === 'CONFIRMED' && (
+                                                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                                                    <div className="bg-blue-600 text-white px-6 py-2 rounded-full shadow-lg">
+                                                        <span className="text-sm font-bold">Token #{apt.tokenNumber}</span>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-semibold text-gray-900">{apt.service.name}</p>
+                                                </div>
+                                            )}
+
+                                            <div className={`flex items-start justify-between gap-4 ${apt.tokenNumber && apt.status === 'CONFIRMED' ? 'mt-4' : ''}`}>
+                                                <div className="flex items-start gap-4 flex-1">
+                                                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-teal-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                        <Stethoscope className="w-7 h-7 text-white" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">
+                                                            {apt.service.name}
+                                                        </h3>
                                                         {apt.slot && (
-                                                            <p className="text-sm text-gray-600 mt-0.5">{apt.slot.doctorName}</p>
+                                                            <div className="flex items-center gap-2 text-gray-600 mb-2">
+                                                                <User size={16} />
+                                                                <span className="font-medium">Dr. {apt.slot.doctorName}</span>
+                                                            </div>
                                                         )}
-                                                        <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-400">
-                                                            <Calendar size={11} />
-                                                            {new Date(apt.date).toLocaleDateString(undefined, {
-                                                                weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-                                                            })}
+                                                        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar size={16} className="text-blue-600" />
+                                                                <span>{formatDate(apt.date)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Clock size={16} className="text-blue-600" />
+                                                                <span>{formatTime(apt.date)}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex flex-col items-end gap-2">
-                                                    <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLES[apt.status]}`}>
-                                                        {STATUS_ICONS[apt.status]} {apt.status}
+                                                <div className="flex flex-col items-end gap-3">
+                                                    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border font-semibold text-sm ${statusConfig.color}`}>
+                                                        <span className={`w-2 h-2 rounded-full ${statusConfig.dotColor}`}></span>
+                                                        {statusConfig.label}
                                                     </span>
                                                     {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && (
-                                                        <button onClick={() => handleCancel(apt.id)} disabled={cancelling === apt.id}
-                                                            className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1 disabled:opacity-50">
-                                                            {cancelling === apt.id ? <Loader size={11} className="animate-spin" /> : <XCircle size={11} />}
+                                                        <button
+                                                            onClick={() => handleCancel(apt.id)}
+                                                            disabled={cancelling === apt.id}
+                                                            className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-semibold disabled:opacity-50 transition-colors"
+                                                        >
+                                                            {cancelling === apt.id ? (
+                                                                <Loader size={16} className="animate-spin" />
+                                                            ) : (
+                                                                <XCircle size={16} />
+                                                            )}
                                                             Cancel
                                                         </button>
                                                     )}
                                                 </div>
                                             </div>
-                                            {apt.notes && (
-                                                <p className="mt-3 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">{apt.notes}</p>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
 
-                        {/* Past */}
-                        {past.length > 0 && (
-                            <div>
-                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Past</h2>
-                                <div className="space-y-3">
-                                    {past.map(apt => (
-                                        <div key={apt.id} className="bg-white border border-gray-100 rounded-xl p-5 opacity-75">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center shrink-0">
-                                                        <Stethoscope className="w-5 h-5 text-gray-400" />
+                                            {apt.notes && (
+                                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                                    <p className="text-sm text-gray-600 font-medium mb-1">Problem Description:</p>
+                                                    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{apt.notes}</p>
+                                                </div>
+                                            )}
+
+                                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                                <div className="text-sm text-gray-500">
+                                                    Booking Fee: <span className="font-bold text-gray-900">Rs. {apt.service.price}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Past Appointments */}
+                    {past.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-1 h-6 bg-gray-400 rounded-full"></div>
+                                <h2 className="text-xl font-bold text-gray-900">Past Appointments</h2>
+                                <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-semibold">
+                                    {past.length}
+                                </span>
+                            </div>
+                            <div className="grid gap-4">
+                                {past.map(apt => {
+                                    const statusConfig = STATUS_CONFIG[apt.status]
+                                    const StatusIcon = statusConfig.icon
+
+                                    return (
+                                        <div
+                                            key={apt.id}
+                                            className="bg-white border border-gray-100 rounded-2xl p-6 opacity-75"
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex items-start gap-4 flex-1">
+                                                    <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                        <Stethoscope className="w-7 h-7 text-gray-400" />
                                                     </div>
-                                                    <div>
-                                                        <p className="font-semibold text-gray-700">{apt.service.name}</p>
-                                                        {apt.slot && <p className="text-sm text-gray-500 mt-0.5">{apt.slot.doctorName}</p>}
-                                                        <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-400">
-                                                            <Calendar size={11} />
-                                                            {new Date(apt.date).toLocaleDateString(undefined, {
-                                                                weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-                                                            })}
+                                                    <div className="flex-1">
+                                                        <h3 className="text-lg font-bold text-gray-700 mb-1">
+                                                            {apt.service.name}
+                                                        </h3>
+                                                        {apt.slot && (
+                                                            <div className="flex items-center gap-2 text-gray-500 mb-2">
+                                                                <User size={16} />
+                                                                <span className="font-medium">Dr. {apt.slot.doctorName}</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar size={16} />
+                                                                <span>{formatDate(apt.date)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Clock size={16} />
+                                                                <span>{formatTime(apt.date)}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLES[apt.status]}`}>
-                                                    {STATUS_ICONS[apt.status]} {apt.status}
+                                                <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border font-semibold text-sm ${statusConfig.color}`}>
+                                                    <span className={`w-2 h-2 rounded-full ${statusConfig.dotColor}`}></span>
+                                                    {statusConfig.label}
                                                 </span>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    )
+                                })}
                             </div>
-                        )}
-                    </>
-                )}
-            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }
