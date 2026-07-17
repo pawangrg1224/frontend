@@ -115,18 +115,29 @@ export async function DELETE(
             return NextResponse.json({ message: 'Slot not found' }, { status: 404 })
         }
 
+        // If slot has appointments, cancel them first before deleting
         if (slot._count.appointments > 0) {
-            return NextResponse.json(
-                { message: 'Cannot delete slot with existing appointments' },
-                { status: 400 }
-            )
+            // Cancel all pending and confirmed appointments for this slot
+            await prisma.appointment.updateMany({
+                where: {
+                    slotId: slotId,
+                    status: { in: ['PENDING', 'CONFIRMED'] },
+                },
+                data: {
+                    status: 'CANCELLED',
+                },
+            })
         }
 
+        // Now delete the slot
         await prisma.appointmentSlot.delete({
             where: { id: slotId },
         })
 
-        return NextResponse.json({ message: 'Slot deleted successfully' })
+        return NextResponse.json({
+            message: 'Slot deleted successfully',
+            cancelledAppointments: slot._count.appointments
+        })
     } catch (error) {
         console.error('Delete slot error:', error)
         return NextResponse.json({ message: 'An error occurred' }, { status: 500 })

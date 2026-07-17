@@ -64,6 +64,262 @@ function DoctorAvatar({ doctor, size = 'md' }: { doctor: Doctor; size?: 'sm' | '
     )
 }
 
+// ─── Edit Doctor Modal ────────────────────────────────────────────────────────
+
+interface EditDoctorModalProps {
+    doctor: Doctor
+    services: Service[]
+    onClose: () => void
+    onSaved: (doctor: Doctor) => void
+}
+
+function EditDoctorModal({ doctor, services, onClose, onSaved }: EditDoctorModalProps) {
+    const profile = doctor.doctorProfile
+    const [email, setEmail] = useState(doctor.email)
+    const [specialization, setSpecialization] = useState(profile?.specialization ?? '')
+    const [experience, setExperience] = useState(profile?.experience?.toString() ?? '')
+    const [departmentId, setDepartmentId] = useState(profile?.departmentId ?? '')
+    const [qualifications, setQualifications] = useState<string[]>(profile?.qualifications ?? [''])
+    const [imageFile, setImageFile] = useState<File | null>(null)
+    const [imagePreview, setImagePreview] = useState<string | null>(profile?.profileImage ?? null)
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
+    const [success, setSuccess] = useState(false)
+    const fileRef = useRef<HTMLInputElement>(null)
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        setImageFile(file)
+        const reader = new FileReader()
+        reader.onload = ev => setImagePreview(ev.target?.result as string)
+        reader.readAsDataURL(file)
+    }
+
+    const addQualification = () => setQualifications(prev => [...prev, ''])
+    const removeQualification = (i: number) => setQualifications(prev => prev.filter((_, idx) => idx !== i))
+    const updateQualification = (i: number, val: string) =>
+        setQualifications(prev => prev.map((q, idx) => idx === i ? val : q))
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+
+        // Validate email
+        if (!email.trim()) {
+            setError('Email is required')
+            return
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(email)) {
+            setError('Please enter a valid email address')
+            return
+        }
+
+        setSaving(true); setError('')
+
+        const fd = new FormData()
+        fd.append('email', email.trim())
+        fd.append('specialization', specialization.trim())
+        fd.append('experience', experience)
+        fd.append('departmentId', departmentId)
+        fd.append('qualifications', JSON.stringify(qualifications.filter(q => q.trim())))
+        if (imageFile) fd.append('profileImage', imageFile)
+
+        try {
+            const res = await fetch(`/api/admin/doctors/${doctor.id}`, { method: 'PATCH', body: fd })
+            if (!res.ok) {
+                const d = await res.json()
+                throw new Error(d.message || 'Failed to update doctor')
+            }
+            const updatedData = await res.json()
+
+            // Merge updated data into doctor object
+            const updatedDoctor = {
+                ...doctor,
+                email: updatedData.email || email,
+                doctorProfile: updatedData.profile || updatedData
+            }
+            setSuccess(true)
+            setTimeout(() => { onSaved(updatedDoctor); onClose() }, 1000)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to update doctor')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <Edit2 size={16} className="text-blue-600" />
+                        </div>
+                        <h2 className="font-bold text-gray-900">Edit Dr. {doctor.fullName}</h2>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                        <X size={18} className="text-gray-500" />
+                    </button>
+                </div>
+
+                {success ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                        <CheckCircle className="w-12 h-12 text-green-500 mb-3" />
+                        <p className="font-semibold text-gray-900">Doctor updated successfully!</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+                        {/* Profile image */}
+                        <div className="flex flex-col items-center gap-3">
+                            <div
+                                onClick={() => fileRef.current?.click()}
+                                className="relative w-24 h-24 rounded-full cursor-pointer group"
+                            >
+                                {imagePreview ? (
+                                    <img src={imagePreview} alt="Preview" className="w-24 h-24 rounded-full object-cover border-2 border-blue-200" />
+                                ) : (
+                                    <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group-hover:border-blue-400 group-hover:bg-blue-50 transition-colors">
+                                        <Camera size={20} className="text-gray-400 group-hover:text-blue-500" />
+                                        <span className="text-xs text-gray-400 mt-1">Photo</span>
+                                    </div>
+                                )}
+                                <div className="absolute bottom-0 right-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                                    <Camera size={12} className="text-white" />
+                                </div>
+                            </div>
+                            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                            <p className="text-xs text-gray-400">Click to change profile photo</p>
+                        </div>
+
+                        {/* Email */}
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email *</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="doctor@hospital.com"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">⚠️ Changing email will affect doctor's login credentials</p>
+                        </div>
+
+                        {/* Specialization + Experience */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                                    <Stethoscope size={13} className="text-gray-400" /> Specialization
+                                </label>
+                                <input
+                                    type="text"
+                                    value={specialization}
+                                    onChange={e => setSpecialization(e.target.value)}
+                                    placeholder="e.g. Cardiology"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                                    <Briefcase size={13} className="text-gray-400" /> Experience (years)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="60"
+                                    value={experience}
+                                    onChange={e => setExperience(e.target.value)}
+                                    placeholder="e.g. 10"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Department */}
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                                <Building2 size={13} className="text-gray-400" /> Department
+                            </label>
+                            <select
+                                value={departmentId}
+                                onChange={e => setDepartmentId(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
+                            >
+                                <option value="">Select department (optional)</option>
+                                {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Qualifications */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                                    <GraduationCap size={13} className="text-gray-400" /> Qualifications
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={addQualification}
+                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                >
+                                    <Plus size={12} /> Add more
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {qualifications.map((q, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            value={q}
+                                            onChange={e => updateQualification(i, e.target.value)}
+                                            placeholder={`e.g. MBBS – Harvard Medical School`}
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
+                                        />
+                                        {qualifications.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => removeQualification(i)}
+                                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+                        )}
+                    </form>
+                )}
+
+                {/* Footer */}
+                {!success && (
+                    <div className="px-6 py-4 border-t border-gray-200 flex gap-3 shrink-0">
+                        <button
+                            onClick={handleSubmit as any}
+                            disabled={saving}
+                            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-50 font-semibold text-sm"
+                        >
+                            {saving ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle size={16} />}
+                            {saving ? 'Saving…' : 'Save Changes'}
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl hover:bg-gray-50 font-semibold text-sm"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
 // ─── Add Doctor Modal ─────────────────────────────────────────────────────────
 
 interface AddDoctorModalProps {
@@ -84,6 +340,7 @@ function AddDoctorModal({ services, onClose, onSaved }: AddDoctorModalProps) {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
+    const [tempPassword, setTempPassword] = useState<string | null>(null)
     const fileRef = useRef<HTMLInputElement>(null)
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,9 +376,15 @@ function AddDoctorModal({ services, onClose, onSaved }: AddDoctorModalProps) {
         try {
             const res = await fetch('/api/admin/doctors', { method: 'POST', body: fd })
             if (!res.ok) { const d = await res.json(); throw new Error(d.message) }
-            const doctor = await res.json()
+            const data = await res.json()
+            setTempPassword(data.tempPassword || null)
             setSuccess(true)
-            setTimeout(() => { onSaved(doctor); onClose() }, 1000)
+            // Don't auto-close if we have a password to show
+            if (!data.tempPassword) {
+                setTimeout(() => { onSaved(data); onClose() }, 1000)
+            } else {
+                onSaved(data)
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to add doctor')
         } finally {
@@ -148,7 +411,31 @@ function AddDoctorModal({ services, onClose, onSaved }: AddDoctorModalProps) {
                 {success ? (
                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                         <CheckCircle className="w-12 h-12 text-green-500 mb-3" />
-                        <p className="font-semibold text-gray-900">Doctor added successfully!</p>
+                        <p className="font-semibold text-gray-900 mb-4">Doctor added successfully!</p>
+                        {tempPassword && (
+                            <div className="w-full max-w-sm bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
+                                <p className="text-sm text-gray-700 font-medium mb-2">
+                                    Temporary Login Credentials:
+                                </p>
+                                <div className="bg-white rounded-lg p-3 mb-2">
+                                    <p className="text-xs text-gray-500">Email</p>
+                                    <p className="font-mono text-sm font-semibold text-gray-900">{email}</p>
+                                </div>
+                                <div className="bg-white rounded-lg p-3">
+                                    <p className="text-xs text-gray-500">Temporary Password</p>
+                                    <p className="font-mono text-sm font-semibold text-blue-600">{tempPassword}</p>
+                                </div>
+                                <p className="text-xs text-gray-600 mt-3">
+                                    ⚠️ Please save this password and share it with the doctor. They can change it after first login.
+                                </p>
+                            </div>
+                        )}
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                        >
+                            Close
+                        </button>
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
@@ -323,6 +610,8 @@ export default function DoctorsPage() {
     const [success, setSuccess] = useState('')
     const [search, setSearch] = useState('')
     const [showAddModal, setShowAddModal] = useState(false)
+    const [showEditModal, setShowEditModal] = useState(false)
+    const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null)
     const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
     const flash = (msg: string) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000) }
@@ -350,14 +639,95 @@ export default function DoctorsPage() {
     }
 
     const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Delete Dr. ${name}? This cannot be undone.`)) return
+        if (!confirm(`Delete Dr. ${name}? This will also delete all related data and cannot be undone.`)) return
+        setError('')
         try {
             const res = await fetch(`/api/admin/doctors/${id}`, { method: 'DELETE' })
-            if (!res.ok) throw new Error('Failed')
+
+            // Always try to parse the response
+            let data;
+            try {
+                data = await res.json()
+            } catch (parseErr) {
+                throw new Error('Server returned an invalid response')
+            }
+
+            if (!res.ok) {
+                // Provide more detailed error message
+                throw new Error(data.message || data.error || `Failed to delete doctor (${res.status})`)
+            }
+
             setDoctors(prev => prev.filter(d => d.id !== id))
-            flash(`Dr. ${name} deleted`)
-        } catch {
-            setError('Failed to delete doctor')
+            flash(`Dr. ${name} deleted successfully`)
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Failed to delete doctor'
+            setError(errorMsg)
+            console.error('Delete error:', err)
+            // Auto-clear error after 8 seconds
+            setTimeout(() => setError(''), 8000)
+        }
+    }
+
+    const handleEdit = (doctor: Doctor) => {
+        setEditingDoctor(doctor)
+        setShowEditModal(true)
+    }
+
+    const handleResetPassword = async (doctor: Doctor) => {
+        if (!confirm(`Reset password for Dr. ${doctor.fullName}? A new temporary password will be generated.`)) return
+        setError('')
+        try {
+            const res = await fetch(`/api/admin/doctors/${doctor.id}/reset-password`, { method: 'POST' })
+            if (!res.ok) {
+                const data = await res.json()
+                throw new Error(data.message || 'Failed to reset password')
+            }
+            const data = await res.json()
+            // Show the new password to the admin
+            alert(
+                `Password Reset Successful!\n\n` +
+                `Doctor: Dr. ${data.fullName}\n` +
+                `Email: ${data.email}\n` +
+                `New Temporary Password: ${data.tempPassword}\n\n` +
+                `Please save this password and share it with the doctor.`
+            )
+            flash(`Password reset for Dr. ${doctor.fullName}`)
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Failed to reset password'
+            setError(errorMsg)
+            setTimeout(() => setError(''), 8000)
+        }
+    }
+
+    const handleFixAllRoles = async () => {
+        if (!confirm('Fix all doctor roles and create missing profiles? This will:\n- Update all users with doctor profiles to have DOCTOR role\n- Create profiles for DOCTOR role users without profiles')) return
+        setError('')
+        try {
+            // First fix roles
+            const rolesRes = await fetch('/api/admin/doctors/fix-roles', { method: 'POST' })
+            if (!rolesRes.ok) throw new Error('Failed to fix roles')
+            const rolesData = await rolesRes.json()
+
+            // Then create missing profiles
+            const profilesRes = await fetch('/api/admin/doctors/create-profiles', { method: 'POST' })
+            if (!profilesRes.ok) throw new Error('Failed to create profiles')
+            const profilesData = await profilesRes.json()
+
+            const totalFixed = rolesData.fixed + profilesData.created
+
+            if (totalFixed === 0) {
+                flash('All doctors already have correct roles and profiles!')
+            } else {
+                const messages = []
+                if (rolesData.fixed > 0) messages.push(`${rolesData.fixed} role(s)`)
+                if (profilesData.created > 0) messages.push(`${profilesData.created} profile(s)`)
+                flash(`Successfully fixed ${messages.join(' and ')}!`)
+                // Reload doctors to show updated list
+                loadAll()
+            }
+        } catch (err) {
+            setError('Failed to fix doctor roles and profiles')
+            console.error('Fix all error:', err)
         }
     }
 
@@ -389,12 +759,21 @@ export default function DoctorsPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Doctors</h1>
                     <p className="text-gray-500 text-sm mt-0.5">{doctors.length} registered doctor{doctors.length !== 1 ? 's' : ''}</p>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 font-semibold text-sm shadow-sm transition-colors"
-                >
-                    <Plus size={16} /> Add Doctor
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleFixAllRoles}
+                        className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2.5 rounded-xl hover:from-emerald-700 hover:to-teal-700 font-semibold text-sm shadow-sm transition-all"
+                        title="Fix roles and create profiles for all doctors"
+                    >
+                        <UserCheck size={16} /> Sync Doctors
+                    </button>
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 font-semibold text-sm shadow-sm transition-colors"
+                    >
+                        <Plus size={16} /> Add Doctor
+                    </button>
+                </div>
             </div>
 
             <div className="p-6 space-y-5">
@@ -486,6 +865,20 @@ export default function DoctorsPage() {
                                                 </button>
                                             )}
                                             <button
+                                                onClick={() => handleEdit(doctor)}
+                                                className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="Edit doctor"
+                                            >
+                                                <Edit2 size={15} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleResetPassword(doctor)}
+                                                className="p-2 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                                title="Reset password"
+                                            >
+                                                <UserCheck size={15} />
+                                            </button>
+                                            <button
                                                 onClick={() => handleDelete(doctor.id, doctor.fullName)}
                                                 className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="Delete doctor"
@@ -530,6 +923,22 @@ export default function DoctorsPage() {
                     onSaved={(doctor) => {
                         setDoctors(prev => [doctor, ...prev])
                         flash(`Dr. ${doctor.fullName} added`)
+                    }}
+                />
+            )}
+
+            {/* Edit Doctor Modal */}
+            {showEditModal && editingDoctor && (
+                <EditDoctorModal
+                    doctor={editingDoctor}
+                    services={services}
+                    onClose={() => {
+                        setShowEditModal(false)
+                        setEditingDoctor(null)
+                    }}
+                    onSaved={(updatedDoctor) => {
+                        setDoctors(prev => prev.map(d => d.id === updatedDoctor.id ? updatedDoctor : d))
+                        flash(`Dr. ${updatedDoctor.fullName} updated`)
                     }}
                 />
             )}

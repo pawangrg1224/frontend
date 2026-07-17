@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
             profileImagePath = `/uploads/doctors/${filename}`
         }
 
-        // Generate a random secure password
+        // Generate a random secure password or use provided one
         const tempPassword = randomUUID().replace(/-/g, '').slice(0, 16)
         const hashedPassword = hashPassword(tempPassword)
 
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
                 fullName: fullName.trim(),
                 email: email.trim().toLowerCase(),
                 password: hashedPassword,
-                role: 'USER',
+                role: 'DOCTOR', // Changed from USER to DOCTOR
                 doctorProfile: {
                     create: {
                         specialization: specialization?.trim() || null,
@@ -139,7 +139,8 @@ export async function POST(request: NextRequest) {
             },
         })
 
-        return NextResponse.json(user, { status: 201 })
+        // Return the temp password so admin can share it with the doctor
+        return NextResponse.json({ ...user, tempPassword }, { status: 201 })
     } catch (err: any) {
         if (err?.code === 'P2002') {
             return NextResponse.json({ message: 'A user with this email already exists' }, { status: 409 })

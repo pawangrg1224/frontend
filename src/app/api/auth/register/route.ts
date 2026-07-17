@@ -4,7 +4,7 @@ import { hashPassword } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, company, password, role } = await request.json()
+    const { name, email, password, role } = await request.json()
 
     // Validation
     if (!name || !email || !password) {
@@ -44,14 +44,30 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = hashPassword(password)
 
+    // Create user with doctorProfile if role is DOCTOR
+    const userData: any = {
+      fullName: name,
+      email,
+      password: hashedPassword,
+      role: role === 'ADMIN' ? 'ADMIN' : role === 'DOCTOR' ? 'DOCTOR' : 'USER',
+    }
+
+    // If DOCTOR role, create doctorProfile automatically
+    if (role === 'DOCTOR') {
+      userData.doctorProfile = {
+        create: {
+          specialization: null,
+          profileImage: null,
+          qualifications: [],
+          experience: null,
+          departmentId: null,
+        }
+      }
+    }
+
     // Create user
     const user = await prisma.user.create({
-      data: {
-        fullName: name,
-        email,
-        password: hashedPassword,
-        role: role === 'ADMIN' ? 'ADMIN' : 'USER',
-      },
+      data: userData,
     })
 
     // Return success without password
@@ -65,8 +81,16 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('Register error:', error)
+    console.error('Error details:', JSON.stringify(error, null, 2))
+
+    // Return more detailed error in development
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred during registration'
+
     return NextResponse.json(
-      { message: 'An error occurred during registration' },
+      {
+        message: 'An error occurred during registration',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     )
   }

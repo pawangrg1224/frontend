@@ -273,7 +273,7 @@ export default function SidebarLayout({ config, children }: Props) {
                     </button>
                     <div className="ml-4 flex items-center gap-3">
                         <span className="text-sm text-gray-500">
-                            Welcome back, <span className="font-semibold text-gray-900">{session?.user?.name}</span>
+                            Welcome back, <span className="font-semibold text-gray-900">{session?.user?.name?.replace(/ User$/, '')}</span>
                         </span>
                         {config.topBarBadge && (
                             <span className="text-xs font-medium text-white bg-blue-600 px-2 py-0.5 rounded-full">

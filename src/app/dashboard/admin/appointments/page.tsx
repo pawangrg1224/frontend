@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Loader, Plus, Edit2, Trash2, X, Save, Check, XCircle } from 'lucide-react'
+import { ChevronLeft, Loader, Plus, Edit2, Trash2, X, Save, Check, XCircle, Search } from 'lucide-react'
 import { toast, Toaster } from 'sonner'
 
 interface Appointment {
@@ -15,8 +15,15 @@ interface Appointment {
   tokenNumber?: number
   customer: { id: string; name: string; email: string; phone?: string }
   service: { id: string; name: string }
-  user: { fullName: string; email: string }
-  slot?: { id: string; slotLimit: number }
+  user: {
+    fullName: string
+    email: string
+    doctorProfile?: {
+      specialization: string | null
+      profileImage: string | null
+    } | null
+  }
+  slot?: { id: string; doctorName: string; slotLimit: number } | null
 }
 
 interface Customer { id: string; name: string }
@@ -54,6 +61,7 @@ const AdminAppointmentsPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [processingId, setProcessingId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Modal state
   const [showModal, setShowModal] = useState(false)
@@ -210,9 +218,37 @@ const AdminAppointmentsPage = () => {
     }
   }
 
+  // Filter appointments based on search query
+  const filteredAppointments = appointments.filter(apt => {
+    if (!searchQuery) return true // Show all if no search query
+
+    const query = searchQuery.toLowerCase().trim()
+    // Remove common prefixes like "Dr.", "Dr", "Doctor" for better matching
+    const cleanQuery = query.replace(/^(dr\.?\s*|doctor\s*)/i, '').trim()
+
+    // Search in these fields
+    const searchableFields = [
+      apt.customer.name.toLowerCase(),
+      apt.customer.email.toLowerCase(),
+      apt.customer.phone?.toLowerCase() || '',
+      apt.service.name.toLowerCase(),
+      apt.user.fullName.toLowerCase(),
+      apt.user.email.toLowerCase(),
+      apt.user.doctorProfile?.specialization?.toLowerCase() || '',
+      apt.slot?.doctorName?.toLowerCase() || '',
+      apt.status.toLowerCase(),
+      extractProblem(apt.notes).toLowerCase()
+    ]
+
+    // Check both original query and cleaned query (without "Dr." prefix)
+    return searchableFields.some(field =>
+      field.includes(query) || field.includes(cleanQuery)
+    )
+  })
+
   // Separate pending and other appointments
-  const pendingAppointments = appointments.filter(apt => apt.status === 'PENDING')
-  const otherAppointments = appointments.filter(apt => apt.status !== 'PENDING')
+  const pendingAppointments = filteredAppointments.filter(apt => apt.status === 'PENDING')
+  const otherAppointments = filteredAppointments.filter(apt => apt.status !== 'PENDING')
 
   if (isLoading) {
     return (
@@ -231,17 +267,29 @@ const AdminAppointmentsPage = () => {
         <Link href="/dashboard/admin" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
           <ChevronLeft size={20} /> Back to Admin
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">All Appointments</h1>
             <p className="text-gray-600 mt-1">Manage appointment requests and bookings</p>
           </div>
-          <button
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Plus size={18} /> New Appointment
-          </button>
+          <div className="relative w-full max-w-md">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by patient name, phone, department, doctor..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -251,6 +299,31 @@ const AdminAppointmentsPage = () => {
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
             <p className="text-red-700 font-medium">{error}</p>
             <button onClick={() => setError('')}><X size={16} className="text-red-500" /></button>
+          </div>
+        )}
+
+        {/* Search Results Count */}
+        {searchQuery && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-blue-700">
+                Found <span className="font-semibold">{filteredAppointments.length}</span> appointment{filteredAppointments.length !== 1 ? 's' : ''} matching <span className="font-semibold">"{searchQuery}"</span>
+              </p>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-xs text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+              >
+                Clear search
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* No Results Message */}
+        {filteredAppointments.length === 0 && searchQuery && (
+          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+            <p className="text-gray-500 text-lg mb-2">No appointments match your search</p>
+            <p className="text-gray-400 text-sm">Try searching by patient name, phone, department, or doctor name</p>
           </div>
         )}
 
@@ -338,12 +411,16 @@ const AdminAppointmentsPage = () => {
             <h2 className="text-xl font-bold text-gray-900">All Appointments</h2>
             <p className="text-sm text-gray-600">Complete list of all appointments</p>
           </div>
-          {appointments.length === 0 ? (
+          {otherAppointments.length === 0 && !searchQuery ? (
             <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
               <p className="text-gray-500 mb-4">No appointments yet</p>
               <button onClick={openCreate} className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
                 <Plus size={18} /> Create first appointment
               </button>
+            </div>
+          ) : otherAppointments.length === 0 && searchQuery ? (
+            <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+              <p className="text-gray-500">No appointments found matching your search</p>
             </div>
           ) : (
             <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
@@ -360,7 +437,7 @@ const AdminAppointmentsPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {appointments.map((apt) => (
+                  {otherAppointments.map((apt) => (
                     <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{apt.customer.name}</div>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Calendar, Eye, EyeOff, ArrowRight, Loader, ShieldAlert, User } from 'lucide-react'
+import { Calendar, Eye, EyeOff, ArrowRight, Loader, ShieldAlert, User, Stethoscope } from 'lucide-react'
 
 interface FormErrors {
   email?: string
@@ -11,16 +11,21 @@ interface FormErrors {
   confirmPassword?: string
   fullName?: string
   phoneNumber?: string
+  address?: string
   role?: string
   terms?: string
 }
 
+type UserType = 'staff' | 'patient'
+
 const SignupPage = () => {
   const router = useRouter()
+  const [userType, setUserType] = useState<UserType>('patient')
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phoneNumber: '',
+    address: '',
     password: '',
     confirmPassword: '',
     role: 'USER',
@@ -34,11 +39,13 @@ const SignupPage = () => {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
 
-    // Full Name validation
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required'
-    } else if (formData.fullName.length < 2) {
-      newErrors.fullName = 'Full name must be at least 2 characters'
+    // Full Name validation - Skip for Admin
+    if (formData.role !== 'ADMIN') {
+      if (!formData.fullName.trim()) {
+        newErrors.fullName = 'Full name is required'
+      } else if (formData.fullName.length < 2) {
+        newErrors.fullName = 'Full name must be at least 2 characters'
+      }
     }
 
     // Email validation
@@ -49,12 +56,19 @@ const SignupPage = () => {
       newErrors.email = 'Please enter a valid email address'
     }
 
-    // Phone Number validation
-    const phoneRegex = /^[0-9]{10}$/
-    if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = 'Phone number is required'
-    } else if (!phoneRegex.test(formData.phoneNumber.replace(/\s/g, ''))) {
-      newErrors.phoneNumber = 'Please enter a valid 10-digit phone number'
+    // Phone Number validation - Skip for Admin
+    if (formData.role !== 'ADMIN') {
+      const phoneRegex = /^[0-9]{10}$/
+      if (!formData.phoneNumber.trim()) {
+        newErrors.phoneNumber = 'Phone number is required'
+      } else if (!phoneRegex.test(formData.phoneNumber.replace(/\s/g, ''))) {
+        newErrors.phoneNumber = 'Please enter a valid 10-digit phone number'
+      }
+    }
+
+    // Address validation - Only for USER (optional but if provided, must be valid)
+    if (formData.role === 'USER' && formData.address.trim() && formData.address.trim().length < 5) {
+      newErrors.address = 'Address must be at least 5 characters'
     }
 
     // Password validation
@@ -108,9 +122,8 @@ const SignupPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.fullName,
+          name: formData.role === 'ADMIN' ? 'Admin User' : formData.fullName,
           email: formData.email,
-          company: formData.phoneNumber,
           password: formData.password,
           role: formData.role,
         }),
@@ -118,14 +131,20 @@ const SignupPage = () => {
 
       if (!response.ok) {
         const data = await response.json()
-        setErrors({ email: data.message || 'Failed to create account' })
+        // Show specific error message from API
+        if (data.message) {
+          setErrors({ email: data.message })
+        } else {
+          setErrors({ email: 'Failed to create account. Please try again.' })
+        }
         return
       }
 
       // Redirect to login page with success message and role hint
       router.push(`/auth/login?signup=success&role=${formData.role}`)
     } catch (err) {
-      setErrors({ email: 'An error occurred. Please try again.' })
+      console.error('Signup error:', err)
+      setErrors({ email: 'Network error. Please check your connection and try again.' })
     } finally {
       setIsLoading(false)
     }
@@ -142,21 +161,21 @@ const SignupPage = () => {
       />
 
       {/* Gradient Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 -z-10" />
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-50 -z-10" />
 
       {/* Animated Orbs */}
       <div className="fixed top-20 right-20 w-96 h-96 bg-blue-200 rounded-full blur-3xl opacity-20 -z-10 animate-pulse"></div>
-      <div className="fixed bottom-20 left-20 w-96 h-96 bg-purple-200 rounded-full blur-3xl opacity-20 -z-10 animate-pulse"></div>
+      <div className="fixed bottom-20 left-20 w-96 h-96 bg-cyan-200 rounded-full blur-3xl opacity-20 -z-10 animate-pulse"></div>
 
       {/* Content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen px-4 py-12">
         <div className="w-full max-w-md">
           {/* Logo */}
-          <Link href="/" className="flex items-center justify-center gap-2 mb-12 group">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center group-hover:shadow-lg transition-all duration-300">
-              <Calendar className="w-6 h-6 text-white" />
+          <Link href="/" className="flex items-center justify-center gap-3 mb-12 group">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-all duration-300">
+              <Stethoscope className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Schedulo</span>
+            <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">MediBook</span>
           </Link>
 
           {/* Card */}
@@ -164,7 +183,41 @@ const SignupPage = () => {
             {/* Header */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-              <p className="text-gray-600">Join Schedulo to manage your appointments</p>
+              <p className="text-gray-600">Join MediBook to manage your appointments</p>
+            </div>
+
+            {/* User Type Tabs */}
+            <div className="mb-8">
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserType('patient')
+                    setFormData(prev => ({ ...prev, role: 'USER' }))
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${userType === 'patient'
+                    ? 'bg-white text-blue-600 shadow-md'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                >
+                  <User size={20} />
+                  User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserType('staff')
+                    setFormData(prev => ({ ...prev, role: 'ADMIN' }))
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${userType === 'staff'
+                    ? 'bg-white text-cyan-600 shadow-md'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                >
+                  <ShieldAlert size={20} />
+                  Admin / Doctor
+                </button>
+              </div>
             </div>
 
             {/* General Error Alert */}
@@ -176,25 +229,27 @@ const SignupPage = () => {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Full Name Field */}
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  placeholder="John Doe"
-                  className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white ${errors.fullName
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
-                    }`}
-                />
-                {errors.fullName && <p className="text-sm text-red-600 mt-1">{errors.fullName}</p>}
-              </div>
+              {/* Full Name Field - Hidden for Admin */}
+              {formData.role !== 'ADMIN' && (
+                <div>
+                  <label htmlFor="fullName" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    placeholder="Full Name"
+                    className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white ${errors.fullName
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                      }`}
+                  />
+                  {errors.fullName && <p className="text-sm text-red-600 mt-1">{errors.fullName}</p>}
+                </div>
+              )}
 
               {/* Email Field */}
               <div>
@@ -207,7 +262,7 @@ const SignupPage = () => {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="you@example.com"
+                  placeholder={formData.role === 'ADMIN' ? 'admin@example.com' : 'you@example.com'}
                   className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white ${errors.email
                     ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
                     : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
@@ -216,63 +271,94 @@ const SignupPage = () => {
                 {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
               </div>
 
-              {/* Phone Number Field */}
-              <div>
-                <label htmlFor="phoneNumber" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <input
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  type="tel"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  placeholder="9876543210"
-                  maxLength={10}
-                  className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white ${errors.phoneNumber
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
-                    }`}
-                />
-                {errors.phoneNumber && <p className="text-sm text-red-600 mt-1">{errors.phoneNumber}</p>}
-              </div>
-
-              {/* Role Selection */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Account Role
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, role: 'USER' }))}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${formData.role === 'USER'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+              {/* Phone Number Field - Hidden for Admin */}
+              {formData.role !== 'ADMIN' && (
+                <div>
+                  <label htmlFor="phoneNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    placeholder="9876543210"
+                    maxLength={10}
+                    className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white ${errors.phoneNumber
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
                       }`}
-                  >
-                    <User size={20} className={formData.role === 'USER' ? 'text-blue-600' : 'text-gray-400'} />
-                    <div className="text-left">
-                      <p className="text-sm font-semibold">User</p>
-                      <p className="text-xs opacity-70">Standard access</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, role: 'ADMIN' }))}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${formData.role === 'ADMIN'
-                      ? 'border-purple-500 bg-purple-50 text-purple-700'
-                      : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
-                      }`}
-                  >
-                    <ShieldAlert size={20} className={formData.role === 'ADMIN' ? 'text-purple-600' : 'text-gray-400'} />
-                    <div className="text-left">
-                      <p className="text-sm font-semibold">Admin</p>
-                      <p className="text-xs opacity-70">Full access</p>
-                    </div>
-                  </button>
+                  />
+                  {errors.phoneNumber && <p className="text-sm text-red-600 mt-1">{errors.phoneNumber}</p>}
                 </div>
-              </div>
+              )}
+
+              {/* Address Field - Only for USER */}
+              {formData.role === 'USER' && (
+                <div>
+                  <label htmlFor="address" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Address
+                  </label>
+                  <textarea
+                    id="address"
+                    name="address"
+                    value={formData.address}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, address: e.target.value }))
+                      if (errors.address) {
+                        setErrors(prev => ({ ...prev, address: undefined }))
+                      }
+                    }}
+                    placeholder="Enter your full address"
+                    rows={3}
+                    className={`w-full px-4 py-3 rounded-lg border focus:ring-2 outline-none transition-all duration-200 bg-gray-50 focus:bg-white resize-none ${errors.address
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                      }`}
+                  />
+                  {errors.address && <p className="text-sm text-red-600 mt-1">{errors.address}</p>}
+                </div>
+              )}
+
+              {/* Role Selection - Only for Staff */}
+              {userType === 'staff' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Select Your Role
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, role: 'ADMIN' }))}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${formData.role === 'ADMIN'
+                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                        }`}
+                    >
+                      <ShieldAlert size={20} className={formData.role === 'ADMIN' ? 'text-cyan-600' : 'text-gray-400'} />
+                      <div className="text-left">
+                        <p className="text-sm font-semibold">Admin</p>
+                        <p className="text-xs opacity-70">Full system access</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, role: 'DOCTOR' }))}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${formData.role === 'DOCTOR'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                        }`}
+                    >
+                      <Stethoscope size={20} className={formData.role === 'DOCTOR' ? 'text-blue-600' : 'text-gray-400'} />
+                      <div className="text-left">
+                        <p className="text-sm font-semibold">Doctor</p>
+                        <p className="text-xs opacity-70">Medical staff</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Password Field */}              <div>
                 <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -362,7 +448,7 @@ const SignupPage = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-6 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+                className="w-full mt-6 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
               >
                 {isLoading ? (
                   <>

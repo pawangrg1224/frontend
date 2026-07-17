@@ -12,7 +12,19 @@ export async function GET(request: NextRequest) {
       include: {
         customer: { select: { id: true, name: true, email: true, phone: true } },
         service: { select: { id: true, name: true } },
-        user: { select: { fullName: true, email: true } },
+        user: {
+          select: {
+            fullName: true,
+            email: true,
+            doctorProfile: {
+              select: {
+                specialization: true,
+                profileImage: true
+              }
+            }
+          }
+        },
+        slot: { select: { id: true, doctorName: true, slotLimit: true } },
       },
       orderBy: { date: 'desc' },
     })

@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react'
 import Link from 'next/link'
-import { Calendar, Clock, Users, BarChart3, Check, ArrowRight } from 'lucide-react'
+import { Stethoscope, Clock, Users, BarChart3, Check, ArrowRight } from 'lucide-react'
 
 const LandingPage = () => {
   // Intersection Observer for Fade-in animations
@@ -55,10 +55,10 @@ const LandingPage = () => {
         <div className="max-w-6xl mx-auto px-6 h-16 relative flex justify-between items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center group-hover:shadow-lg transition-all duration-300">
-              <Calendar className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center group-hover:shadow-lg transition-all duration-300">
+              <Stethoscope className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold tracking-tight text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Schedulo</span>
+            <span className="font-semibold tracking-tight text-lg bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">MediBook</span>
           </Link>
 
           {/* Desktop Links */}
@@ -71,7 +71,7 @@ const LandingPage = () => {
           {/* CTA */}
           <div className="flex items-center gap-4">
             <Link href="/auth/login" className="hidden md:block text-sm font-medium hover:text-zinc-600 transition-colors">Log in</Link>
-            <Link href="/auth/signup" className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5">
+            <Link href="/auth/signup" className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5">
               Get Started Free
             </Link>
           </div>
@@ -87,16 +87,16 @@ const LandingPage = () => {
           </div>
 
           <h1 className="fade-in-up delay-200 text-5xl md:text-7xl font-bold tracking-tight text-black leading-[1.1] mb-6">
-            Schedule smarter,<br />
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">not harder</span>
+            Healthcare appointments<br />
+            <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">made simple</span>
           </h1>
 
           <p className="fade-in-up delay-300 text-lg md:text-xl text-zinc-600 max-w-2xl mx-auto mb-10 leading-relaxed font-light">
-            Streamline your appointment management with our intuitive scheduling platform. Beautiful, fast, and built for modern teams who value their time.
+            Streamline your medical appointment management with our intuitive scheduling platform. Built for healthcare professionals and patients who value their time.
           </p>
 
           <div className="fade-in-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/auth/signup" className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center gap-2">
+            <Link href="/auth/signup" className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center gap-2">
               Start Free Trial
               <ArrowRight size={18} />
             </Link>
@@ -107,41 +107,41 @@ const LandingPage = () => {
 
           {/* Hero Mockup */}
           <div className="fade-in-up delay-500 mt-20 max-w-5xl mx-auto relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-200 via-cyan-200 to-teal-200 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition duration-1000"></div>
 
             <div className="relative bg-white border border-zinc-200 rounded-2xl shadow-2xl overflow-hidden">
               {/* Window Header */}
-              <div className="h-14 border-b border-zinc-100 flex items-center px-6 justify-between bg-gradient-to-r from-blue-50 to-purple-50">
+              <div className="h-14 border-b border-zinc-100 flex items-center px-6 justify-between bg-gradient-to-r from-blue-50 to-cyan-50">
                 <div className="flex gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-400"></div>
                   <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                   <div className="w-3 h-3 rounded-full bg-green-400"></div>
                 </div>
-                <div className="text-xs text-zinc-400 font-mono">schedulo.app/dashboard</div>
+                <div className="text-xs text-zinc-400 font-mono">medibook.app/dashboard</div>
                 <div className="w-4"></div>
               </div>
 
               {/* Hero Image Placeholder */}
-              <div className="relative bg-gradient-to-br from-blue-50 via-white to-purple-50 aspect-video flex items-center justify-center overflow-hidden">
+              <div className="relative bg-gradient-to-br from-blue-50 via-white to-cyan-50 aspect-video flex items-center justify-center overflow-hidden">
                 {/* Decorative elements */}
                 <div className="absolute top-10 left-10 w-32 h-32 bg-blue-200 rounded-full blur-3xl opacity-20"></div>
-                <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-200 rounded-full blur-3xl opacity-20"></div>
+                <div className="absolute bottom-10 right-10 w-40 h-40 bg-cyan-200 rounded-full blur-3xl opacity-20"></div>
 
                 {/* Content */}
                 <div className="relative z-10 text-center px-6">
                   <div className="flex justify-center gap-4 mb-6">
                     <div className="p-3 bg-white rounded-lg shadow-sm border border-zinc-200">
-                      <Calendar size={24} className="text-blue-600" />
+                      <Stethoscope size={24} className="text-blue-600" />
                     </div>
                     <div className="p-3 bg-white rounded-lg shadow-sm border border-zinc-200">
-                      <Clock size={24} className="text-purple-600" />
+                      <Clock size={24} className="text-cyan-600" />
                     </div>
                     <div className="p-3 bg-white rounded-lg shadow-sm border border-zinc-200">
-                      <Users size={24} className="text-pink-600" />
+                      <Users size={24} className="text-teal-600" />
                     </div>
                   </div>
-                  <h3 className="text-2xl font-bold text-zinc-800 mb-2">All Your Appointments in One Place</h3>
-                  <p className="text-zinc-600 text-sm">Manage customers, services, and schedules effortlessly</p>
+                  <h3 className="text-2xl font-bold text-zinc-800 mb-2">All Your Medical Appointments in One Place</h3>
+                  <p className="text-zinc-600 text-sm">Manage patients, doctors, and schedules effortlessly</p>
                 </div>
               </div>
             </div>
@@ -178,28 +178,28 @@ const LandingPage = () => {
             {/* Feature 1 */}
             <div className="fade-in-up p-8 bg-gradient-to-br from-white to-blue-50 border border-blue-100 rounded-xl hover:shadow-lg transition-all duration-300">
               <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center mb-6">
-                <Calendar className="w-6 h-6 text-blue-600" />
+                <Stethoscope className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold text-black mb-3">Smart Scheduling</h3>
               <p className="text-sm text-zinc-600 leading-relaxed">Automated appointment booking with real-time availability and conflict detection</p>
             </div>
 
             {/* Feature 2 */}
-            <div className="fade-in-up p-8 bg-gradient-to-br from-white to-purple-50 border border-purple-100 rounded-xl hover:shadow-lg transition-all duration-300">
-              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center mb-6">
-                <Users className="w-6 h-6 text-purple-600" />
+            <div className="fade-in-up p-8 bg-gradient-to-br from-white to-cyan-50 border border-cyan-100 rounded-xl hover:shadow-lg transition-all duration-300">
+              <div className="w-12 h-12 rounded-lg bg-cyan-100 flex items-center justify-center mb-6">
+                <Users className="w-6 h-6 text-cyan-600" />
               </div>
-              <h3 className="text-lg font-semibold text-black mb-3">Customer Management</h3>
-              <p className="text-sm text-zinc-600 leading-relaxed">Organize customer information, track booking history, and manage preferences</p>
+              <h3 className="text-lg font-semibold text-black mb-3">Patient Management</h3>
+              <p className="text-sm text-zinc-600 leading-relaxed">Organize patient information, track medical history, and manage appointments</p>
             </div>
 
             {/* Feature 3 */}
-            <div className="fade-in-up p-8 bg-gradient-to-br from-white to-pink-50 border border-pink-100 rounded-xl hover:shadow-lg transition-all duration-300">
-              <div className="w-12 h-12 rounded-lg bg-pink-100 flex items-center justify-center mb-6">
-                <Clock className="w-6 h-6 text-pink-600" />
+            <div className="fade-in-up p-8 bg-gradient-to-br from-white to-teal-50 border border-teal-100 rounded-xl hover:shadow-lg transition-all duration-300">
+              <div className="w-12 h-12 rounded-lg bg-teal-100 flex items-center justify-center mb-6">
+                <Clock className="w-6 h-6 text-teal-600" />
               </div>
-              <h3 className="text-lg font-semibold text-black mb-3">Service Management</h3>
-              <p className="text-sm text-zinc-600 leading-relaxed">Create, customize, and manage services with pricing, duration, and availability</p>
+              <h3 className="text-lg font-semibold text-black mb-3">Department Management</h3>
+              <p className="text-sm text-zinc-600 leading-relaxed">Manage medical departments with specialized services, pricing, and availability</p>
             </div>
 
             {/* Feature 4 */}
@@ -221,23 +221,23 @@ const LandingPage = () => {
             </div>
 
             {/* Feature 6 */}
-            <div className="fade-in-up p-8 bg-gradient-to-br from-white via-blue-50 to-purple-50 border border-blue-100 rounded-xl hover:shadow-lg transition-all duration-300 lg:col-span-1">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center mb-6">
+            <div className="fade-in-up p-8 bg-gradient-to-br from-white via-blue-50 to-cyan-50 border border-blue-100 rounded-xl hover:shadow-lg transition-all duration-300 lg:col-span-1">
+              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center mb-6">
                 <ArrowRight className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold text-black mb-3">Easy Integration</h3>
-              <p className="text-sm text-zinc-600 leading-relaxed">Seamlessly integrate with your existing calendar and business tools</p>
+              <p className="text-sm text-zinc-600 leading-relaxed">Seamlessly integrate with your existing healthcare management tools</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Benefits Section */}
-      <section id="benefits" className="py-24 px-6 bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <section id="benefits" className="py-24 px-6 bg-gradient-to-br from-blue-50 via-white to-cyan-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-black mb-4">Why choose Schedulo?</h2>
-            <p className="text-lg text-zinc-600 max-w-2xl mx-auto">The smartest way to manage appointments for your business</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-black mb-4">Why choose MediBook?</h2>
+            <p className="text-lg text-zinc-600 max-w-2xl mx-auto">The smartest way to manage medical appointments for healthcare providers</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -255,25 +255,25 @@ const LandingPage = () => {
 
             <div className="fade-in-up flex gap-4">
               <div className="flex-shrink-0">
-                <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 text-white">
                   <Check size={24} />
                 </div>
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-black mb-2">Reduce No-Shows</h3>
-                <p className="text-zinc-600">Automated reminders keep customers informed and reduce missed appointments</p>
+                <p className="text-zinc-600">Automated reminders keep patients informed and reduce missed appointments</p>
               </div>
             </div>
 
             <div className="fade-in-up flex gap-4">
               <div className="flex-shrink-0">
-                <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-gradient-to-br from-pink-500 to-pink-600 text-white">
+                <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white">
                   <Check size={24} />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-black mb-2">Increase Revenue</h3>
-                <p className="text-zinc-600">More bookings, fewer cancellations, and better resource utilization</p>
+                <h3 className="text-xl font-semibold text-black mb-2">Improve Efficiency</h3>
+                <p className="text-zinc-600">More patient visits, fewer cancellations, and better resource utilization</p>
               </div>
             </div>
 
@@ -284,8 +284,8 @@ const LandingPage = () => {
                 </div>
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-black mb-2">Professional Image</h3>
-                <p className="text-zinc-600">Modern, beautiful interface that impresses customers and boosts credibility</p>
+                <h3 className="text-xl font-semibold text-black mb-2">Professional Experience</h3>
+                <p className="text-zinc-600">Modern, beautiful interface that impresses patients and enhances healthcare delivery</p>
               </div>
             </div>
           </div>
@@ -326,7 +326,7 @@ const LandingPage = () => {
             </div>
 
             {/* Professional Plan (Popular) */}
-            <div className="fade-in-up p-8 bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-xl shadow-xl relative overflow-hidden transform md:scale-105">
+            <div className="fade-in-up p-8 bg-gradient-to-br from-blue-600 to-cyan-600 text-white rounded-xl shadow-xl relative overflow-hidden transform md:scale-105">
               <div className="absolute top-4 right-4">
                 <span className="text-xs font-bold uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full">Popular</span>
               </div>
@@ -385,10 +385,10 @@ const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
+      <section className="py-20 px-6 bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to transform your scheduling?</h2>
-          <p className="text-lg text-blue-100 mb-10 max-w-2xl mx-auto">Join hundreds of professionals using Schedulo to manage their appointments effortlessly</p>
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to transform your healthcare scheduling?</h2>
+          <p className="text-lg text-blue-100 mb-10 max-w-2xl mx-auto">Join hundreds of healthcare professionals using MediBook to manage their appointments effortlessly</p>
           <Link href="/auth/signup" className="inline-block px-8 py-4 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl">
             Start Your Free Trial Today
           </Link>
@@ -401,14 +401,14 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center">
-                  <Calendar className="w-3 h-3 text-white" />
+                <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                  <Stethoscope className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-semibold text-white">Schedulo</span>
+                <span className="font-semibold text-white">MediBook</span>
               </div>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Smart appointment scheduling for modern teams.
-                <br />© 2024 Schedulo. All rights reserved.
+                Smart appointment scheduling for healthcare professionals.
+                <br />© 2024 MediBook. All rights reserved.
               </p>
             </div>
 
@@ -440,7 +440,7 @@ const LandingPage = () => {
           </div>
 
           <div className="pt-8 border-t border-zinc-800 text-center text-xs text-zinc-500">
-            <p>Made with ❤️ for professionals who value their time</p>
+            <p>Made with ❤️ for healthcare professionals who value their time</p>
           </div>
         </div>
       </footer>

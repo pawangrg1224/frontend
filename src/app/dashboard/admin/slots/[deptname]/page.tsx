@@ -8,6 +8,7 @@ import {
     Heart, Brain, Bone, Eye, Baby, Wind, Microscope, Pill,
     Ear, Smile, Syringe, Zap, Activity, FlaskConical, Shield, User, X, CheckCircle, AlertCircle,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Service {
     id: string
@@ -102,6 +103,9 @@ export default function DepartmentSlotsPage() {
     const [error, setError] = useState('')
     const [showAddModal, setShowAddModal] = useState(false)
     const [selectedDoctorForAdd, setSelectedDoctorForAdd] = useState<string | null>(null)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [slotToDelete, setSlotToDelete] = useState<string | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     // Add slot form state
     const [selectedDoctor, setSelectedDoctor] = useState('')
@@ -151,7 +155,35 @@ export default function DepartmentSlotsPage() {
             const slotsRes = await fetch(`/api/slots?serviceId=${departmentId}`)
             if (!slotsRes.ok) throw new Error('Failed to fetch slots')
             const slotsData = await slotsRes.json()
-            setSlots(slotsData.data || [])
+            const fetchedSlots = slotsData.data || []
+
+            // Auto-delete past slots (only yesterday and older, keep today)
+            const todayStart = new Date()
+            todayStart.setHours(0, 0, 0, 0)
+
+            const pastSlots = fetchedSlots.filter((slot: Slot) => {
+                const slotDate = new Date(slot.slotDate)
+                return slotDate < todayStart
+            })
+
+            // Delete past slots in background
+            if (pastSlots.length > 0) {
+                pastSlots.forEach(async (slot: Slot) => {
+                    try {
+                        await fetch(`/api/slots/${slot.id}`, { method: 'DELETE' })
+                    } catch (err) {
+                        console.error('Failed to auto-delete past slot:', slot.id)
+                    }
+                })
+            }
+
+            // Show current and future slots (today onwards)
+            const currentSlots = fetchedSlots.filter((slot: Slot) => {
+                const slotDate = new Date(slot.slotDate)
+                return slotDate >= todayStart
+            })
+
+            setSlots(currentSlots)
         } catch (err) {
             setError('Failed to load data')
             console.error(err)
@@ -230,8 +262,23 @@ export default function DepartmentSlotsPage() {
                 throw new Error(`Failed to create ${failed.length} slot(s)`)
             }
 
+            // Fetch new data to update the list
+            const slotsRes = await fetch(`/api/slots?serviceId=${departmentId}`)
+            if (slotsRes.ok) {
+                const slotsData = await slotsRes.json()
+                setSlots(slotsData.data || [])
+            }
+
             setShowAddModal(false)
-            fetchData()
+
+            // Show success toast
+            const slotsCreated = results.length
+            toast.success('Doctor assigned successfully', {
+                description: `Created ${slotsCreated} appointment slot${slotsCreated > 1 ? 's' : ''}`,
+                position: 'bottom-right',
+                duration: 4000,
+            })
+
             // Reset form
             setSelectedDoctor('')
             setSlotDate('')
@@ -244,7 +291,15 @@ export default function DepartmentSlotsPage() {
             setSlotLimit('10')
             setSelectedDoctorForAdd(null)
         } catch (err) {
-            setFormError(err instanceof Error ? err.message : 'Failed to create slots')
+            const errorMessage = err instanceof Error ? err.message : 'Failed to create slots'
+            setFormError(errorMessage)
+
+            // Show error toast
+            toast.error('Failed to assign doctor', {
+                description: errorMessage,
+                position: 'bottom-right',
+                duration: 4000,
+            })
         } finally {
             setSaving(false)
         }
@@ -261,15 +316,45 @@ export default function DepartmentSlotsPage() {
         setShowAddModal(true)
     }
 
-    const handleDeleteSlot = async (slotId: string) => {
-        if (!confirm('Are you sure you want to delete this slot?')) return
+    const openDeleteModal = (slotId: string) => {
+        setSlotToDelete(slotId)
+        setShowDeleteModal(true)
+    }
 
+    const handleDeleteSlot = async () => {
+        if (!slotToDelete) return
+
+        setIsDeleting(true)
         try {
-            const res = await fetch(`/api/slots/${slotId}`, { method: 'DELETE' })
-            if (!res.ok) throw new Error('Failed to delete slot')
-            fetchData()
+            const res = await fetch(`/api/slots/${slotToDelete}`, { method: 'DELETE' })
+            if (!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.message || 'Failed to delete slot')
+            }
+
+            // Remove the slot from state without refetching
+            setSlots(prevSlots => prevSlots.filter(slot => slot.id !== slotToDelete))
+            setShowDeleteModal(false)
+            setSlotToDelete(null)
+
+            // Show success toast
+            toast.success('Slot deleted successfully', {
+                description: 'Associated appointments have been cancelled',
+                position: 'bottom-right',
+                duration: 4000,
+            })
         } catch (err) {
-            setError('Failed to delete slot')
+            setShowDeleteModal(false)
+            setSlotToDelete(null)
+
+            // Show error toast
+            toast.error('Failed to delete slot', {
+                description: err instanceof Error ? err.message : 'An error occurred',
+                position: 'bottom-right',
+                duration: 4000,
+            })
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -283,8 +368,19 @@ export default function DepartmentSlotsPage() {
 
     const { icon: DeptIcon, color, bg } = service ? getDeptIcon(service.name) : { icon: Stethoscope, color: 'text-gray-600', bg: 'bg-gray-100' }
 
+    // Get current date/time
+    const now = new Date()
+
+    // Filter out past slots (show today and future - delete only yesterday and older)
+    const activeSlots = slots.filter(slot => {
+        const slotDate = new Date(slot.slotDate)
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        // Keep slot if it's today or in the future
+        return slotDate >= todayStart
+    })
+
     // Group slots by doctor
-    const slotsByDoctor = slots.reduce((acc, slot) => {
+    const slotsByDoctor = activeSlots.reduce((acc, slot) => {
         if (!acc[slot.doctorName]) acc[slot.doctorName] = []
         acc[slot.doctorName].push(slot)
         return acc
@@ -298,7 +394,7 @@ export default function DepartmentSlotsPage() {
     })
 
     // Group slots by date for the right panel
-    const slotsByDate = slots.reduce((acc, slot) => {
+    const slotsByDate = activeSlots.reduce((acc, slot) => {
         const date = new Date(slot.slotDate).toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
@@ -422,10 +518,10 @@ export default function DepartmentSlotsPage() {
                             Assigned Slots
                         </h2>
 
-                        {slots.length === 0 ? (
+                        {activeSlots.length === 0 ? (
                             <div className="text-center py-16">
                                 <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                                <p className="text-gray-500 mb-2 font-medium">No slots assigned yet</p>
+                                <p className="text-gray-500 mb-2 font-medium">No upcoming slots</p>
                                 <p className="text-gray-400 text-sm">Click "Assign Doctor" to create appointment slots</p>
                             </div>
                         ) : (
@@ -480,7 +576,7 @@ export default function DepartmentSlotsPage() {
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation()
-                                                                    handleDeleteSlot(slot.id)
+                                                                    openDeleteModal(slot.id)
                                                                 }}
                                                                 className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                                                 title="Delete slot"
@@ -676,8 +772,64 @@ export default function DepartmentSlotsPage() {
                         </form>
                     </div>
                 </div>
-            )
-            }
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h2 className="text-lg font-bold text-gray-900">Delete Slot</h2>
+                        </div>
+
+                        <div className="p-6">
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <AlertCircle className="w-6 h-6 text-red-600" />
+                                </div>
+                                <div>
+                                    <p className="text-gray-900 font-medium mb-2">
+                                        Are you sure you want to delete this slot?
+                                    </p>
+                                    <p className="text-gray-600 text-sm">
+                                        This will cancel any associated appointments and cannot be undone.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowDeleteModal(false)
+                                        setSlotToDelete(null)
+                                    }}
+                                    disabled={isDeleting}
+                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteSlot}
+                                    disabled={isDeleting}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium transition-colors"
+                                >
+                                    {isDeleting ? (
+                                        <>
+                                            <Loader className="w-4 h-4 animate-spin" />
+                                            Deleting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 size={16} />
+                                            Delete
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     )
 }

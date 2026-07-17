@@ -21,6 +21,8 @@ export default function DashboardRootPage() {
 
       if (role === 'ADMIN') {
         router.replace('/dashboard/admin')
+      } else if (role === 'DOCTOR') {
+        router.replace('/dashboard/doctor')
       } else {
         router.replace('/dashboard/user')
       }

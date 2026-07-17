@@ -62,9 +62,9 @@ export default function ProfileMenu({ name, email, role, sidebarOpen, pathname }
                             </Link>
                         )}
                         <Link
-                            href="/dashboard/settings"
+                            href={role === 'ADMIN' ? '/dashboard/admin/settings' : role === 'DOCTOR' ? '/dashboard/doctor/settings' : '/dashboard/settings'}
                             onClick={() => setOpen(false)}
-                            className={`flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors ${pathname === '/dashboard/settings' ? 'bg-gray-50 font-semibold' : ''}`}
+                            className={`flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors ${pathname.includes('/settings') ? 'bg-gray-50 font-semibold' : ''}`}
                         >
                             <Settings size={16} />
                             Settings

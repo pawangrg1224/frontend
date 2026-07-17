@@ -9,6 +9,24 @@ import MetricCard from './MetricCard';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
+interface ApiResponse {
+    appointmentStats: {
+        total: number;
+        byStatus: Record<string, number>;
+    };
+    revenueStats: {
+        total: number;
+        byService: Array<{ serviceId: string; revenue: number }>;
+        byDomain: Array<{ domainId: string | null; revenue: number }>;
+    };
+    timeSeries: Array<{ month: string; count?: number; revenue?: number }>;
+    derivedMetrics: {
+        noShowRate: number;
+        retentionRate: number;
+        topServices: Array<{ serviceId: string; count: number }>;
+    };
+}
+
 interface AnalyticsData {
     totalAppointments: number;
     revenue: number;
@@ -43,9 +61,38 @@ export default function AnalyticsDashboard() {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const res = await fetch(`/api/admin/analytics?period=${period}`);
-        if (res.ok) setData(await res.json());
-        setLoading(false);
+        try {
+            const res = await fetch(`/api/admin/analytics?period=${period}`);
+            if (res.ok) {
+                const apiData: ApiResponse = await res.json();
+
+                // Transform API response to component data format
+                const transformedData: AnalyticsData = {
+                    totalAppointments: apiData.appointmentStats.total,
+                    revenue: apiData.revenueStats.total,
+                    noShowRate: apiData.derivedMetrics.noShowRate * 100,
+                    retentionRate: apiData.derivedMetrics.retentionRate * 100,
+                    appointmentTrends: apiData.timeSeries.map(point => ({
+                        month: point.month,
+                        count: point.count ?? 0
+                    })),
+                    revenueByService: apiData.revenueStats.byService.map(item => ({
+                        name: item.serviceId,
+                        revenue: item.revenue
+                    })),
+                    statusDistribution: Object.entries(apiData.appointmentStats.byStatus).map(([status, count]) => ({
+                        status,
+                        count
+                    }))
+                };
+
+                setData(transformedData);
+            }
+        } catch (error) {
+            console.error('Failed to fetch analytics:', error);
+        } finally {
+            setLoading(false);
+        }
     }, [period]);
 
     useEffect(() => {
@@ -100,25 +147,25 @@ export default function AnalyticsDashboard() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <MetricCard
                             label="Total Appointments"
-                            value={data.totalAppointments}
+                            value={data.totalAppointments ?? 0}
                             color="blue"
                             icon={<span className="text-lg">📅</span>}
                         />
                         <MetricCard
                             label="Revenue"
-                            value={`$${data.revenue.toLocaleString()}`}
+                            value={`$${(data.revenue ?? 0).toLocaleString()}`}
                             color="green"
                             icon={<span className="text-lg">💰</span>}
                         />
                         <MetricCard
                             label="No-Show Rate"
-                            value={`${data.noShowRate.toFixed(1)}%`}
+                            value={`${(data.noShowRate ?? 0).toFixed(1)}%`}
                             color="yellow"
                             icon={<span className="text-lg">⚠️</span>}
                         />
                         <MetricCard
                             label="Retention Rate"
-                            value={`${data.retentionRate.toFixed(1)}%`}
+                            value={`${(data.retentionRate ?? 0).toFixed(1)}%`}
                             color="purple"
                             icon={<span className="text-lg">🔄</span>}
                         />

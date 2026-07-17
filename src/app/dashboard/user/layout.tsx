@@ -25,8 +25,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                         { label: 'Dashboard', href: '/dashboard/user', icon: LayoutDashboard },
                         { label: 'My Appointments', href: '/dashboard/user/my-appointments', icon: Calendar },
                         { label: 'Open Slots', href: '/dashboard/user/open-slots', icon: Clock },
-                        { label: 'Departments', href: '/dashboard/services', icon: Stethoscope, expandable: true },
-                        { label: 'Settings', href: '/dashboard/settings', icon: Settings },
+                        { label: 'Departments', href: '/dashboard/user/services', icon: Stethoscope, expandable: true },
+                        { label: 'Settings', href: '/dashboard/user/settings', icon: Settings },
                     ],
                 }}
             >

@@ -10,12 +10,14 @@ import { randomUUID } from 'crypto'
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> | { id: string } }
 ) {
     const session = await getAuthSession()
     if (!session?.user?.email) return unauthorizedResponse()
     if (session.user.role !== 'ADMIN') return forbiddenResponse()
 
+    // Handle both Next.js 14 and 15+ params
+    const params = context.params instanceof Promise ? await context.params : context.params
     const { id } = params
 
     try {
@@ -55,6 +57,7 @@ export async function PATCH(
         // ── Multipart form data (used from doctor profile edit page) ──────────
         const formData = await request.formData()
 
+        const email = formData.get('email') as string | null
         const specialization = formData.get('specialization') as string | null
         const experienceRaw = formData.get('experience') as string | null
         const departmentId = formData.get('departmentId') as string | null
@@ -64,6 +67,20 @@ export async function PATCH(
         let qualifications: string[] | undefined
         if (qualRaw !== null) {
             try { qualifications = JSON.parse(qualRaw) } catch { qualifications = [] }
+        }
+
+        // Check if email is being changed and if it's unique
+        if (email !== null && email.trim() !== '') {
+            const existingUser = await prisma.user.findUnique({
+                where: { email: email.trim() },
+                select: { id: true }
+            })
+            if (existingUser && existingUser.id !== id) {
+                return NextResponse.json(
+                    { message: 'Email is already in use by another user' },
+                    { status: 400 }
+                )
+            }
         }
 
         // Handle image upload
@@ -83,6 +100,16 @@ export async function PATCH(
                 const oldPath = join(process.cwd(), 'public', existing.profileImage)
                 unlink(oldPath).catch(() => { }) // ignore if already gone
             }
+        }
+
+        // Update user email if provided
+        let updatedUser
+        if (email !== null && email.trim() !== '') {
+            updatedUser = await prisma.user.update({
+                where: { id },
+                data: { email: email.trim() },
+                select: { id: true, email: true, fullName: true }
+            })
         }
 
         const updated = await prisma.doctorProfile.update({
@@ -107,7 +134,11 @@ export async function PATCH(
             },
         })
 
-        return NextResponse.json(updated)
+        return NextResponse.json({
+            ...updated,
+            email: updatedUser?.email,
+            profile: updated
+        })
     } catch (err) {
         console.error('Update doctor error:', err)
         return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
@@ -118,26 +149,89 @@ export async function PATCH(
 
 export async function DELETE(
     _req: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> | { id: string } }
 ) {
     const session = await getAuthSession()
     if (!session?.user?.email) return unauthorizedResponse()
     if (session.user.role !== 'ADMIN') return forbiddenResponse()
 
+    // Handle both Next.js 14 and 15+ params
+    const params = context.params instanceof Promise ? await context.params : context.params
     const { id } = params
 
     try {
+        // Check if doctor exists
+        const user = await prisma.user.findUnique({
+            where: { id },
+            include: {
+                doctorProfile: true,
+                _count: {
+                    select: {
+                        appointments: true,
+                        reviewVotes: true,
+                        sentMessages: true,
+                        availabilities: true,
+                        availabilityPatterns: true,
+                    }
+                }
+            }
+        })
+
+        if (!user) {
+            return NextResponse.json({ message: 'Doctor not found' }, { status: 404 })
+        }
+
+        // Log what will be deleted
+        console.log(`Deleting doctor ${user.fullName}:`, {
+            appointments: user._count.appointments,
+            reviewVotes: user._count.reviewVotes,
+            messages: user._count.sentMessages,
+            availabilities: user._count.availabilities,
+            patterns: user._count.availabilityPatterns,
+        })
+
+        // Delete review votes manually (no cascade)
+        if (user._count.reviewVotes > 0) {
+            await prisma.reviewVote.deleteMany({
+                where: { userId: id }
+            })
+        }
+
         // Delete profile image if exists
-        const profile = await prisma.doctorProfile.findUnique({ where: { userId: id }, select: { profileImage: true } })
+        const profile = user.doctorProfile
         if (profile?.profileImage) {
             const imgPath = join(process.cwd(), 'public', profile.profileImage)
             unlink(imgPath).catch(() => { })
         }
 
+        // Now delete the user - cascades will handle the rest
         await prisma.user.delete({ where: { id } })
-        return NextResponse.json({ message: 'Doctor deleted' })
-    } catch (err) {
+
+        return NextResponse.json({
+            message: 'Doctor deleted successfully',
+            deletedAppointments: user._count.appointments
+        })
+    } catch (err: any) {
         console.error('Delete doctor error:', err)
-        return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
+
+        // Check for foreign key constraint errors
+        if (err.code === 'P2003') {
+            return NextResponse.json({
+                message: 'Cannot delete doctor due to existing references. Please contact support.',
+                details: process.env.NODE_ENV === 'development' ? err.meta : undefined
+            }, { status: 400 })
+        }
+
+        // Check for record not found
+        if (err.code === 'P2025') {
+            return NextResponse.json({
+                message: 'Doctor not found or already deleted'
+            }, { status: 404 })
+        }
+
+        return NextResponse.json({
+            message: 'Failed to delete doctor. Please try again.',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        }, { status: 500 })
     }
 }

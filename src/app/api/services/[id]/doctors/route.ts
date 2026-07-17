@@ -9,7 +9,7 @@ import prisma from '@/lib/prisma'
  */
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -17,17 +17,12 @@ export async function GET(
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
         }
 
-        const { id } = params
+        const { id } = await params
 
-        // Fetch doctors assigned to this department
+        // Single optimized query - fetch doctors with their slots in one go
         const doctors = await prisma.doctorProfile.findMany({
             where: {
                 departmentId: id,
-                // Only show doctors currently assigned (no end date or end date in future)
-                OR: [
-                    { departmentEndDate: null },
-                    { departmentEndDate: { gte: new Date() } }
-                ]
             },
             include: {
                 user: {
@@ -52,45 +47,58 @@ export async function GET(
             }
         })
 
-        // Fetch available slots for each doctor
-        const doctorsWithSlots = await Promise.all(
-            doctors.map(async (doctor) => {
-                const slots = await prisma.appointmentSlot.findMany({
-                    where: {
-                        serviceId: id,
-                        doctorName: doctor.user.fullName,
-                        isOpen: true,
-                        slotDate: {
-                            gte: new Date() // Only future slots
-                        }
-                    },
-                    orderBy: {
-                        slotDate: 'asc'
-                    },
-                    take: 10 // Limit to next 10 slots
-                })
+        // Filter out doctors whose assignment has ended
+        const activeDoctors = doctors.filter(doctor => {
+            if (!doctor.departmentEndDate) return true
+            return new Date(doctor.departmentEndDate) >= new Date()
+        })
 
-                return {
-                    id: doctor.id,
-                    userId: doctor.userId,
-                    fullName: doctor.user.fullName,
-                    email: doctor.user.email,
-                    specialization: doctor.specialization,
-                    profileImage: doctor.profileImage,
-                    qualifications: doctor.qualifications,
-                    experience: doctor.experience,
-                    departmentStartDate: doctor.departmentStartDate,
-                    departmentEndDate: doctor.departmentEndDate,
-                    department: doctor.department,
-                    availableSlots: slots.map(slot => ({
-                        id: slot.id,
-                        slotDate: slot.slotDate, // Full DateTime with time information
-                        slotLimit: slot.slotLimit,
-                        isOpen: slot.isOpen,
-                    }))
+        // Fetch all slots for this department in one query
+        const allSlots = await prisma.appointmentSlot.findMany({
+            where: {
+                serviceId: id,
+                isOpen: true,
+                slotDate: {
+                    gte: new Date()
                 }
-            })
-        )
+            },
+            orderBy: {
+                slotDate: 'asc'
+            },
+            take: 100 // Reasonable limit
+        })
+
+        // Group slots by doctor name
+        const slotsByDoctor = allSlots.reduce((acc, slot) => {
+            if (!acc[slot.doctorName]) acc[slot.doctorName] = []
+            acc[slot.doctorName].push(slot)
+            return acc
+        }, {} as Record<string, typeof allSlots>)
+
+        // Map doctors with their slots
+        const doctorsWithSlots = activeDoctors.map(doctor => {
+            const doctorSlots = slotsByDoctor[doctor.user.fullName] || []
+
+            return {
+                id: doctor.id,
+                userId: doctor.userId,
+                fullName: doctor.user.fullName,
+                email: doctor.user.email,
+                specialization: doctor.specialization,
+                profileImage: doctor.profileImage,
+                qualifications: doctor.qualifications,
+                experience: doctor.experience,
+                departmentStartDate: doctor.departmentStartDate,
+                departmentEndDate: doctor.departmentEndDate,
+                department: doctor.department,
+                availableSlots: doctorSlots.slice(0, 10).map(slot => ({
+                    id: slot.id,
+                    slotDate: slot.slotDate,
+                    slotLimit: slot.slotLimit,
+                    isOpen: slot.isOpen,
+                }))
+            }
+        })
 
         return NextResponse.json({
             success: true,
